@@ -2,7 +2,7 @@
     <!-- The app is a thin client of the on-property 007 Resort & Spa API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="007 Resort & Spa"
+        android:label="007 Resort &amp; Spa"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
