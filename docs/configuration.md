@@ -5,8 +5,8 @@ All runtime configuration is supplied at build time with `--dart-define`
 
 | Define                | Required | Default                | Description                                       |
 |-----------------------|----------|------------------------|---------------------------------------------------|
-| `OTUEKE_API_BASE_URL` | no       | `http://10.0.2.2:5080` | Base URL of the Otueke API (without `/api/v1`).   |
-| `OTUEKE_ENV`          | no       | `dev`                  | `dev`, `staging` or `production`.                 |
+| `R007_API_BASE_URL` | no       | `http://10.0.2.2:5080` | Base URL of the 007 Resort & Spa API (without `/api/v1`).   |
+| `R007_ENV`          | no       | `dev`                  | `dev`, `staging` or `production`.                 |
 
 `10.0.2.2` is the Android emulator's alias for the host machine. On a physical
 tablet use the API's address on the property network.

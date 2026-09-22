@@ -1,6 +1,6 @@
 // Offline behaviour - controlled queueing (design notes, no implementation).
 //
-// The Otueke API is the single authority for payments, inventory, bookings,
+// The 007 Resort & Spa API is the single authority for payments, inventory, bookings,
 // ticket validation, pricing and permissions. Tablets talk to it over the
 // property Wi-Fi. When the network is unavailable:
 //

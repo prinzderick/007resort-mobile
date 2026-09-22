@@ -8,5 +8,5 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final config = AppConfig.fromEnvironment();
   final apiClient = ApiClient(baseUrl: config.apiBaseUrl);
-  runApp(OtuekeApp(config: config, apiClient: apiClient));
+  runApp(R007App(config: config, apiClient: apiClient));
 }

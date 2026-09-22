@@ -21,14 +21,14 @@ class SystemInfo {
       SystemInfo(raw: Map.unmodifiable(json));
 
   /// Raw payload; the contract is owned by the API and will be typed once
-  /// it is published in otueke-docs.
+  /// it is published in 007resort-docs.
   final Map<String, dynamic> raw;
 
   String? get name => raw['name'] as String?;
   String? get version => raw['version'] as String?;
 }
 
-/// Minimal HTTP client for the Otueke API.
+/// Minimal HTTP client for the 007 Resort & Spa API.
 ///
 /// The API is the single source of truth for business rules. This client
 /// only transports requests; it must never compute prices, validate tickets,

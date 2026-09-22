@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:otueke_mobile/core/device/device_mode.dart';
+import 'package:r007_mobile/core/device/device_mode.dart';
 
 void main() {
   group('DeviceMode.fromApi', () {

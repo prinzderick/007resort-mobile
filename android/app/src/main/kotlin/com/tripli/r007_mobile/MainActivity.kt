@@ -1,4 +1,4 @@
-package com.tripli.otueke_mobile
+package com.tripli.r007_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

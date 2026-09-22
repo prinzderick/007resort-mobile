@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:otueke_mobile/core/api/api_client.dart';
+import 'package:r007_mobile/core/api/api_client.dart';
 
 void main() {
   group('ApiClient.getSystemInfo', () {
@@ -12,7 +12,7 @@ void main() {
       final mock = MockClient((request) async {
         captured = request;
         return http.Response(
-          jsonEncode({'name': 'Otueke API', 'version': '0.1.0'}),
+          jsonEncode({'name': '007 Resort & Spa API', 'version': '0.1.0'}),
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -30,7 +30,7 @@ void main() {
         'http://10.0.2.2:5080/api/v1/system/info',
       );
       expect(captured.headers['Accept'], 'application/json');
-      expect(info.name, 'Otueke API');
+      expect(info.name, '007 Resort & Spa API');
       expect(info.version, '0.1.0');
     });
 
@@ -41,7 +41,7 @@ void main() {
         return http.Response('{}', 200);
       });
       final client = ApiClient(
-        baseUrl: 'https://api.example.test/otueke/',
+        baseUrl: 'https://api.example.test/r007/',
         httpClient: mock,
       );
 
@@ -49,7 +49,7 @@ void main() {
 
       expect(
         url.toString(),
-        'https://api.example.test/otueke/api/v1/system/info',
+        'https://api.example.test/r007/api/v1/system/info',
       );
     });
 

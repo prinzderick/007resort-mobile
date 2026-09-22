@@ -1,4 +1,4 @@
-# Static analysis for otueke_mobile. CI runs `flutter analyze` and fails on
+# Static analysis for r007_mobile. CI runs `flutter analyze` and fails on
 # any issue (errors, warnings and infos).
 include: package:flutter_lints/flutter.yaml
 

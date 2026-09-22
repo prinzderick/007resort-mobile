@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The app is a thin client of the on-property Otueke API. -->
+    <!-- The app is a thin client of the on-property 007 Resort & Spa API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Otueke"
+        android:label="007 Resort & Spa"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

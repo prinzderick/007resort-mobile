@@ -1,5 +1,5 @@
-name: otueke_mobile
-description: "Otueke Integrated Facility Operations Platform - Android tablet client (thin client of the Otueke API)."
+name: r007_mobile
+description: "007 Resort & Spa Integrated Facility Operations Platform - Android tablet client (thin client of the 007 Resort & Spa API)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

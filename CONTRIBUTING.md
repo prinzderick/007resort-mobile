@@ -1,4 +1,4 @@
-# Contributing to otueke-mobile
+# Contributing to 007resort-mobile
 
 ## Branches
 
@@ -26,7 +26,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 ## Client rules (non-negotiable)
 
 1. **No business rules in the client.** Payments, inventory, bookings, ticket
-   validation, pricing and permissions are decided by the Otueke API. The app
+   validation, pricing and permissions are decided by the 007 Resort & Spa API. The app
    displays results and sends operational mutations to `/api/v1/...`.
 2. **Money** is received from the API as decimal **strings** and displayed
    as-is (formatting only). Never parse money to `double` for arithmetic; if
@@ -48,4 +48,4 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - `flutter analyze` must report no issues (see `analysis_options.yaml`).
 - Add or update tests with every change.
 - Do not add new dependencies (especially state management) without an
-  agreed decision recorded in otueke-docs.
+  agreed decision recorded in 007resort-docs.

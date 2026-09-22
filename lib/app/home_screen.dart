@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Otueke')),
+      appBar: AppBar(title: const Text('007 Resort & Spa')),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

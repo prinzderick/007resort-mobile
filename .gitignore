@@ -44,7 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# --- Otueke: secrets & signing (never commit) ---
+# --- 007 Resort & Spa: secrets & signing (never commit) ---
 .env
 *.env
 .env.*
