@@ -27,6 +27,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   String? _categoryId;
   bool _sending = false;
 
+  /// Server-side DRAFT left behind by a refused send (see PartialSubmitException).
+  String? _draftOrderId;
+
   @override
   void initState() {
     super.initState();
@@ -67,14 +70,16 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         customerName: sel.customerName,
         lines: cart,
       );
-      final result = await ref
-          .read(orderServiceProvider)
-          .submit(
-            draft,
-            openTable: table != null && table.isFree,
-            createTab: sel.newCustomer,
-            customerName: sel.customerName,
-          );
+      final svc = ref.read(orderServiceProvider);
+      final result = _draftOrderId != null
+          ? await svc.resubmit(_draftOrderId!, cart)
+          : await svc.submit(
+              draft,
+              openTable: table != null && table.isFree,
+              createTab: sel.newCustomer,
+              customerName: sel.customerName,
+            );
+      _draftOrderId = null;
       ref.read(cartProvider.notifier).clear();
       if (sel.newCustomer && mounted) {
         // Show the queued/new order under the customer once it exists.
@@ -93,6 +98,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
             : 'Order sent',
       );
       context.pop();
+    } on PartialSubmitException catch (e) {
+      _draftOrderId = e.orderId;
+      if (mounted) toast(context, describeError(e.problem), error: true);
     } on QueueBlockedException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     } on Object catch (e) {

@@ -828,6 +828,45 @@ class MockR007Api implements R007Api {
   );
 
   @override
+  Future<Order> addOrderLine(
+    String orderId,
+    DraftLine line, {
+    required String idempotencyKey,
+  }) => _call(
+    () => _once(idempotencyKey, () {
+      final o = _getOrder(orderId);
+      final p = _product(line.productId);
+      if (p == null) {
+        throw const ApiProblem(
+          status: 422,
+          code: 'validation_failed',
+          title: 'Unknown product',
+        );
+      }
+      o.lines.add(
+        _Line(
+          id: line.lineId,
+          productId: p.id,
+          name: p.name,
+          quantity: line.quantity,
+          unitMinor: Money.toMinor(p.price),
+          notes: line.notes,
+        ),
+      );
+      _bump(o);
+      return _orderModel(o);
+    }),
+  );
+
+  @override
+  Future<Order> removeOrderLine(String orderId, String lineId) => _call(() {
+    final o = _getOrder(orderId);
+    o.lines.removeWhere((l) => l.id == lineId);
+    _bump(o);
+    return _orderModel(o);
+  });
+
+  @override
   Future<Order> sendOrder(String orderId, {required String idempotencyKey}) =>
       _call(
         () => _once(idempotencyKey, () {

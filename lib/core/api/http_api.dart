@@ -522,6 +522,31 @@ class HttpR007Api implements R007Api {
   );
 
   @override
+  Future<Order> addOrderLine(
+    String orderId,
+    DraftLine line, {
+    required String idempotencyKey,
+  }) async => _order(
+    await _orderMutation(
+      orderId,
+      'POST',
+      '/orders/$orderId/lines',
+      body: line.toApi(),
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
+  @override
+  Future<Order> removeOrderLine(String orderId, String lineId) async => _order(
+    await _orderMutation(
+      orderId,
+      'DELETE',
+      '/orders/$orderId/lines/$lineId',
+      idempotencyKey: _uuid.v7(),
+    ),
+  );
+
+  @override
   Future<Order> sendOrder(
     String orderId, {
     required String idempotencyKey,
@@ -545,6 +570,10 @@ class HttpR007Api implements R007Api {
       '/orders',
       query: {
         'filter[facilityId]': facilityId,
+        // Only unsettled orders: a busy outlet settles hundreds a day, which
+        // would otherwise push every open order out of the newest-N page.
+        'filter[status]':
+            'DRAFT,SENT,IN_PREPARATION,READY,SERVED,PENDING_APPROVAL',
         'sort': '-createdAt',
         'limit': 60,
       },

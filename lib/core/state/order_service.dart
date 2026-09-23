@@ -131,10 +131,12 @@ class OrderService {
     }
 
     var i = 0;
+    var created = false;
     try {
       Order? last;
       for (; i < ops.length; i++) {
         last = await execute(ops[i]) ?? last;
+        if (ops[i].type == OpType.createOrder) created = true;
       }
       _conn.reportOnline();
       return SubmitResult(
@@ -143,11 +145,43 @@ class OrderService {
         order: last,
         tabId: d.tabId,
       );
+    } on ApiProblem catch (e) {
+      // The server accepted the DRAFT but refused to send it (e.g.
+      // insufficient stock). Keep its id so a retry edits this draft instead
+      // of creating a second order that re-uses the same line ids.
+      if (created) {
+        throw PartialSubmitException(orderId: d.id, problem: e);
+      }
+      rethrow;
     } on ApiOfflineException {
       _conn.reportOffline();
       // Queue only the steps that did not complete (keys unchanged).
       await outbox.enqueueAll(ops.sublist(i));
       return SubmitResult(orderId: d.id, queued: true, tabId: d.tabId);
+    }
+  }
+
+  /// Retries a draft that exists on the server but was not sent: reconcile its
+  /// lines with the (edited) cart, then send. Online only.
+  Future<SubmitResult> resubmit(String orderId, List<DraftLine> cart) async {
+    try {
+      final server = await _api.getOrder(orderId);
+      final serverIds = {for (final l in server.lines) l.id};
+      final cartIds = {for (final l in cart) l.lineId};
+      for (final id in serverIds.difference(cartIds)) {
+        await _api.removeOrderLine(orderId, id);
+      }
+      for (final l in cart.where((l) => !serverIds.contains(l.lineId))) {
+        await _api.addOrderLine(orderId, l, idempotencyKey: newId());
+      }
+      final o = await _api.sendOrder(orderId, idempotencyKey: newId());
+      _conn.reportOnline();
+      return SubmitResult(orderId: orderId, queued: false, order: o);
+    } on ApiOfflineException {
+      _conn.reportOffline();
+      rethrow;
+    } on ApiProblem catch (e) {
+      throw PartialSubmitException(orderId: orderId, problem: e);
     }
   }
 
@@ -214,4 +248,13 @@ class OrderService {
       rethrow;
     }
   }
+}
+
+/// The order was created (DRAFT) on the server but could not be sent.
+class PartialSubmitException implements Exception {
+  const PartialSubmitException({required this.orderId, required this.problem});
+  final String orderId;
+  final ApiProblem problem;
+  @override
+  String toString() => 'PartialSubmitException(${problem.message})';
 }

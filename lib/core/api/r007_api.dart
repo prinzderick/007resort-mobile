@@ -303,6 +303,15 @@ abstract class R007Api {
 
   Future<Order> createOrder(OrderDraft draft, {required String idempotencyKey});
   Future<Order> sendOrder(String orderId, {required String idempotencyKey});
+
+  /// Edits a DRAFT order that was created but could not be sent (e.g. the
+  /// server refused: insufficient stock), so a retry never re-creates it.
+  Future<Order> addOrderLine(
+    String orderId,
+    DraftLine line, {
+    required String idempotencyKey,
+  });
+  Future<Order> removeOrderLine(String orderId, String lineId);
   Future<Order> getOrder(String orderId);
 
   /// Open orders of a facility, WITH lines.
