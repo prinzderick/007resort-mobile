@@ -18,6 +18,7 @@ class FakeReverb {
   Future<void> start() async {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((req) async {
+      // ignore: close_sinks
       final ws = await WebSocketTransformer.upgrade(req);
       socket = ws;
       ws.add(
