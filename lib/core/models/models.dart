@@ -186,6 +186,7 @@ class DeviceIdentity {
     this.name = '',
     this.homeFacilityId,
     this.homeFacilityKind,
+    this.homeFacilityCode,
     this.homeFacilityName,
     this.checkoutStaffId,
     this.checkoutFacilityId,
@@ -198,6 +199,7 @@ class DeviceIdentity {
     name: j.str('name'),
     homeFacilityId: j.strOrNull('homeFacilityId'),
     homeFacilityKind: j.strOrNull('homeFacilityKind'),
+    homeFacilityCode: j.strOrNull('homeFacilityCode'),
     homeFacilityName: j.strOrNull('homeFacilityName'),
     checkoutStaffId: j.obj('checkout').strOrNull('staffId'),
     checkoutFacilityId: j.obj('checkout').strOrNull('facilityId'),
@@ -210,6 +212,7 @@ class DeviceIdentity {
     'name': name,
     'homeFacilityId': homeFacilityId,
     'homeFacilityKind': homeFacilityKind,
+    'homeFacilityCode': homeFacilityCode,
     'homeFacilityName': homeFacilityName,
   };
 
@@ -220,6 +223,7 @@ class DeviceIdentity {
     name: name,
     homeFacilityId: homeFacilityId,
     homeFacilityKind: f.kind,
+    homeFacilityCode: f.code,
     homeFacilityName: f.name,
   );
 
@@ -229,29 +233,46 @@ class DeviceIdentity {
   final String name;
   final String? homeFacilityId;
   final String? homeFacilityKind;
+  final String? homeFacilityCode;
   final String? homeFacilityName;
   final String? checkoutStaffId;
   final String? checkoutFacilityId;
 
-  /// True when the mode cannot be decided yet (needs the home facility kind).
+  /// True when the mode cannot be decided yet (needs the home facility).
   bool get needsFacilityKind =>
       kind == 'MOBILE_TABLET' &&
       homeFacilityId != null &&
-      homeFacilityKind == null;
+      homeFacilityKind == null &&
+      homeFacilityCode == null;
 
-  /// ASSUMED mapping (the contract has no `mode` field): device kind +
-  /// home facility kind decide the UI. Dedicated tablets have a home facility;
-  /// the shared waiter pool has none.
+  /// ASSUMED mapping (the contract has no `mode` field). Verified against the
+  /// Laravel demo seed:
+  ///  * shared waiter pool tablets have home facility RECEPTION (or none);
+  ///  * `SPORTS_STORE` / `SPORTS_ARENA` home facilities are the sports tablets;
+  ///  * any other home facility (RESTAURANT, INDOOR_CLUB, POOL_BAR, ...) is a
+  ///    dedicated supervisor tablet.
+  /// Facility `code` is preferred over `kind` (kind `STORE` is ambiguous).
   DeviceMode get mode {
     if (kind == 'ENTRANCE_SCANNER') return DeviceMode.sportsEntrance;
     if (kind != 'MOBILE_TABLET') return DeviceMode.unregistered;
     if (homeFacilityId == null) return DeviceMode.attendant;
-    return switch (homeFacilityKind) {
-      'SPORTS_ENTRANCE' => DeviceMode.sportsEntrance,
-      'SPORTS_STORE' => DeviceMode.sportsStore,
-      null => DeviceMode.unregistered,
-      _ => DeviceMode.supervisor,
-    };
+    final code = (homeFacilityCode ?? '').toUpperCase();
+    final kindU = (homeFacilityKind ?? '').toUpperCase();
+    if (code.isEmpty && kindU.isEmpty) return DeviceMode.unregistered;
+    if (code.contains('RECEPTION') || kindU == 'RECEPTION') {
+      return DeviceMode.attendant;
+    }
+    if ((code.contains('SPORT') && code.contains('STORE')) ||
+        kindU == 'SPORTS_STORE') {
+      return DeviceMode.sportsStore;
+    }
+    if (code.contains('ENTRANCE') ||
+        code == 'SPORTS_ARENA' ||
+        kindU == 'SPORTS_ENTRANCE' ||
+        kindU == 'SPORTS') {
+      return DeviceMode.sportsEntrance;
+    }
+    return DeviceMode.supervisor;
   }
 }
 

@@ -112,23 +112,51 @@ class MockEnrolment {
 }
 
 const mockEnrolmentCodes = <String, MockEnrolment>{
-  'ATT-2026': MockEnrolment('MOBILE_TABLET', null),
+  // Like the real demo seed: the shared waiter pool is homed at Reception.
+  'ATT-2026': MockEnrolment('MOBILE_TABLET', 'f-reception'),
   'SUP-2026': MockEnrolment('MOBILE_TABLET', 'f-restaurant'),
   'ENT-2026': MockEnrolment('ENTRANCE_SCANNER', 'f-sports-entrance'),
   'STO-2026': MockEnrolment('MOBILE_TABLET', 'f-sports-store'),
 };
 
 const mockFacilities = <Facility>[
-  Facility(id: 'f-restaurant', name: 'Restaurant', kind: 'RESTAURANT'),
-  Facility(id: 'f-indoor', name: 'Indoor Club', kind: 'INDOOR_CLUB'),
-  Facility(id: 'f-poolbar', name: 'Pool Bar', kind: 'BAR'),
-  Facility(id: 'f-bush', name: 'Bush Bar / Event Centre', kind: 'BAR'),
+  Facility(
+    id: 'f-restaurant',
+    name: 'Restaurant',
+    kind: 'RESTAURANT',
+    code: 'RESTAURANT',
+  ),
+  Facility(
+    id: 'f-indoor',
+    name: 'Indoor Club',
+    kind: 'INDOOR_CLUB',
+    code: 'INDOOR_CLUB',
+  ),
+  Facility(id: 'f-poolbar', name: 'Pool Bar', kind: 'BAR', code: 'POOL_BAR'),
+  Facility(
+    id: 'f-bush',
+    name: 'Bush Bar / Event Centre',
+    kind: 'BAR',
+    code: 'BUSH_BAR',
+  ),
   Facility(
     id: 'f-sports-entrance',
-    name: 'Sports Entrance',
-    kind: 'SPORTS_ENTRANCE',
+    name: 'Sports Arena',
+    kind: 'SPORTS',
+    code: 'SPORTS_ARENA',
   ),
-  Facility(id: 'f-sports-store', name: 'Sports Store', kind: 'SPORTS_STORE'),
+  Facility(
+    id: 'f-sports-store',
+    name: 'Sports Store',
+    kind: 'STORE',
+    code: 'SPORTS_STORE',
+  ),
+  Facility(
+    id: 'f-reception',
+    name: 'Main Reception',
+    kind: 'RECEPTION',
+    code: 'RECEPTION',
+  ),
 ];
 
 /// Facilities a shared waiter tablet may be checked out to.

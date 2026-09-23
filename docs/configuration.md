@@ -20,27 +20,30 @@ dart-define values are compiled into the APK and are **not secret**.
 Cleartext HTTP is enabled in the Android manifest because the Local node is on
 the property LAN (`http://192.168.x.x`). Use HTTPS for the Cloud node.
 
-## Device role resolution (assumed)
+## Device role resolution (assumed, verified against the Laravel demo seed)
 
-The contract's `Device` has a `kind` and `homeFacilityId` but no "mode" field. The app derives the mode:
+The contract's `Device` has a `kind` and `homeFacilityId` but no "mode" field. The app derives the mode from the
+device `kind` and the **code** of its home facility (`GET /organization/facilities/{id}`; the facility `kind` is
+ambiguous - e.g. `STORE` is both Main Store and Sports Store):
 
-| Device `kind` | `homeFacilityId` / facility `kind` | Mode |
+| Device `kind` | Home facility (`code`) | Mode |
 |---|---|---|
-| `MOBILE_TABLET` | none | Attendant (shared waiter pool; checkout picks the facility) |
-| `MOBILE_TABLET` | facility of kind `SPORTS_STORE` | Sports Store |
-| `MOBILE_TABLET` | facility of kind `SPORTS_ENTRANCE` | Sports Entrance |
-| `MOBILE_TABLET` | any other facility | Supervisor (dedicated tablet) |
+| `MOBILE_TABLET` | none, or `RECEPTION` (the shared waiter pool is signed out from Reception) | Attendant (checkout picks the facility) |
+| `MOBILE_TABLET` | `SPORTS_STORE` | Sports Store |
+| `MOBILE_TABLET` | `SPORTS_ARENA` / `*ENTRANCE*` | Sports Entrance |
+| `MOBILE_TABLET` | any other (`RESTAURANT`, `INDOOR_CLUB`, `POOL_BAR`, `BUSH_BAR`, ...) | Supervisor (dedicated tablet) |
 | `ENTRANCE_SCANNER` | - | Sports Entrance |
-| anything else / unresolved | - | "Tablet role not resolved" (never unlocks a UI) |
+| anything else / facility unreadable | - | "Tablet role not resolved" (never unlocks a UI) |
 
 Dedicated tablets (supervisor, sports) are checked out to their home facility automatically at sign-in and checked in on sign-out.
+**Recommendation to the API/contract owners:** add an explicit `mode`/`role` to `Device`.
 
 ## Contract areas assumed or not yet covered
 
 Reconciled with `api/openapi/v1.yaml`, `api/realtime.md`, `api/mvp-flows.md` (as of the version in `007resort-docs`).
 Items below are what the contract does **not** pin down or the MVP does not use yet:
 
-* **Device mode** (above) - needs confirming, ideally an explicit `mode`/`role` on `Device`.
+* **Device mode** (above) - inferred; needs an explicit field.
 * **Shifts**: the contract has `shiftId` on checkout but no endpoint to list a staff member's shifts, so the app checks out **without** a shift.
 * **Modifiers**: the catalog contract has no modifier groups. The UI supports them (mock only); selections are sent as line `notes`.
 * **Tabs**: the app opens tabs for named customers (bars) and attaches orders via `tabId`; it does not settle tabs/payments (cashier role, out of scope for tablets). "Add another order to an open tab" = new order with the table's/tab's `tabId`.

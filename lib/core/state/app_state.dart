@@ -57,7 +57,9 @@ class AppState {
   Staff? get staff => session?.staff;
 
   /// The facility this tablet is currently serving.
-  String? get facilityId => checkout?.facility.id ?? device?.homeFacilityId;
+  String? get facilityId => mode == DeviceMode.attendant
+      ? checkout?.facility.id
+      : (checkout?.facility.id ?? device?.homeFacilityId);
   String? get facilityName {
     final n = checkout?.facility.name;
     return (n != null && n.isNotEmpty) ? n : device?.homeFacilityName;
@@ -65,7 +67,11 @@ class AppState {
 
   /// Dedicated tablets (supervisor / sports) are bound to a home facility and
   /// are checked out automatically at sign-in; the waiter pool is not.
-  bool get isDedicated => device?.homeFacilityId != null;
+  bool get isDedicated =>
+      device?.homeFacilityId != null &&
+      (mode == DeviceMode.supervisor ||
+          mode == DeviceMode.sportsEntrance ||
+          mode == DeviceMode.sportsStore);
 
   bool can(String permission) => session?.staff.can(permission) ?? false;
 

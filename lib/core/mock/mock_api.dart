@@ -430,6 +430,7 @@ class MockR007Api implements R007Api {
         name: name,
         homeFacilityId: home?.id,
         homeFacilityKind: home?.kind,
+        homeFacilityCode: home?.code,
         homeFacilityName: home?.name,
       );
       _devices[id] = d;

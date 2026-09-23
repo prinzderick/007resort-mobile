@@ -72,7 +72,10 @@ class ApprovalsController extends Notifier<ApprovalsState> {
     required String pin,
   }) async {
     final api = ref.read(apiProvider);
+    final me = ref.read(appControllerProvider).staff;
     final step = await api.stepUp(
+      // The server identifies the approver by staff number + PIN.
+      identifier: me?.staffNumber,
       secret: pin,
       credentialType: 'PIN',
       permission: a.permission,

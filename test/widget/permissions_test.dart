@@ -19,13 +19,13 @@ const realCfg = AppConfig(
   environment: 'test',
 );
 
-DeviceIdentity dev(String kind, {String? home, String? homeKind}) =>
+DeviceIdentity dev(String kind, {String? home, String? homeCode}) =>
     DeviceIdentity(
       deviceId: 'd',
       deviceToken: 't',
       kind: kind,
       homeFacilityId: home,
-      homeFacilityKind: homeKind,
+      homeFacilityCode: homeCode,
     );
 
 AuthSession sess({bool locked = false}) => AuthSession(
@@ -71,11 +71,11 @@ void main() {
       String route(DeviceIdentity d) =>
           baseRouteFor(AppState(device: d, session: sess()), mockCfg);
       expect(
-        route(dev('MOBILE_TABLET', home: 'f', homeKind: 'RESTAURANT')),
+        route(dev('MOBILE_TABLET', home: 'f', homeCode: 'RESTAURANT')),
         Routes.supervisor,
       );
       expect(
-        route(dev('MOBILE_TABLET', home: 'f', homeKind: 'SPORTS_STORE')),
+        route(dev('MOBILE_TABLET', home: 'f', homeCode: 'SPORTS_STORE')),
         Routes.store,
       );
       expect(route(dev('ENTRANCE_SCANNER', home: 'f')), Routes.entrance);

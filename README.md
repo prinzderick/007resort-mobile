@@ -144,6 +144,12 @@ R007_API_BASE_URL=http://127.0.0.1:8080 R007_REG_CODE=... R007_STAFF_ID=S-0042 R
 
 ## API integration status and assumptions
 
+Verified against a locally running Laravel node (`feature/api-org-devices` + `feature/api-catalog-orders`, dev demo seed,
+one throwaway merge): system info, device reuse by token, PIN login, facility tree, checkout / check-in, catalog, tables,
+create (client UUIDv7) -> idempotent replay -> send (`If-Match`) -> list, void -> 202 approval -> supervisor step-up +
+decision -> VOIDED, and inline `X-Step-Up-Token` void. **Not yet verified against a real server:** Reverb realtime,
+Sports (entitlements/redeem/release/return - no server module yet), tabs, serve after KDS READY.
+
 See "Contract areas assumed" in [docs/configuration.md](docs/configuration.md#contract-areas-assumed-or-not-yet-covered).
 
 ## Conventions

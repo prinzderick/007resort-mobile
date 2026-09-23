@@ -533,26 +533,69 @@ void main() {
     expect(f.map((x) => x.id), ['root', 'r1']);
   });
 
-  test('device mode resolution from kind + home facility kind', () {
-    DeviceIdentity d(String kind, {String? home, String? homeKind}) =>
-        DeviceIdentity(
-          deviceId: 'd',
-          deviceToken: 't',
-          kind: kind,
-          homeFacilityId: home,
-          homeFacilityKind: homeKind,
-        );
+  test('device mode resolution (verified against the Laravel demo seed)', () {
+    DeviceIdentity d(
+      String kind, {
+      String? home,
+      String? fKind,
+      String? code,
+    }) => DeviceIdentity(
+      deviceId: 'd',
+      deviceToken: 't',
+      kind: kind,
+      homeFacilityId: home,
+      homeFacilityKind: fKind,
+      homeFacilityCode: code,
+    );
     expect(d('MOBILE_TABLET').mode.apiValue, 'ATTENDANT');
     expect(
-      d('MOBILE_TABLET', home: 'f', homeKind: 'RESTAURANT').mode.apiValue,
+      d(
+        'MOBILE_TABLET',
+        home: 'f',
+        fKind: 'RECEPTION',
+        code: 'RECEPTION',
+      ).mode.apiValue,
+      'ATTENDANT',
+    );
+    expect(
+      d(
+        'MOBILE_TABLET',
+        home: 'f',
+        fKind: 'RESTAURANT',
+        code: 'RESTAURANT',
+      ).mode.apiValue,
       'SUPERVISOR',
     );
     expect(
-      d('MOBILE_TABLET', home: 'f', homeKind: 'SPORTS_STORE').mode.apiValue,
+      d(
+        'MOBILE_TABLET',
+        home: 'f',
+        fKind: 'BAR',
+        code: 'POOL_BAR',
+      ).mode.apiValue,
+      'SUPERVISOR',
+    );
+    // kind STORE is ambiguous (Main Store vs Sports Store): the code decides
+    expect(
+      d(
+        'MOBILE_TABLET',
+        home: 'f',
+        fKind: 'STORE',
+        code: 'SPORTS_STORE',
+      ).mode.apiValue,
       'SPORTS_STORE',
     );
+    expect(
+      d(
+        'MOBILE_TABLET',
+        home: 'f',
+        fKind: 'SPORTS',
+        code: 'SPORTS_ARENA',
+      ).mode.apiValue,
+      'SPORTS_ENTRANCE',
+    );
     expect(d('ENTRANCE_SCANNER').mode.apiValue, 'SPORTS_ENTRANCE');
-    // unresolved facility kind never unlocks a UI
+    // unresolved facility never unlocks a UI
     expect(d('MOBILE_TABLET', home: 'f').mode.apiValue, 'UNREGISTERED');
     expect(d('POS_TERMINAL').mode.apiValue, 'UNREGISTERED');
   });
