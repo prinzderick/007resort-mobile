@@ -81,11 +81,11 @@ void main() {
       api.setOffline(true);
       final svc = c.read(orderServiceProvider);
       final r = await svc.submit(
-        OrderDraft(
+        const OrderDraft(
           id: '0192f6a0-0000-7000-8000-000000000001',
           facilityId: 'f-restaurant',
           tableId: 'tbl-f-restaurant-1',
-          lines: const [line],
+          lines: [line],
         ),
         openTable: true,
       );
