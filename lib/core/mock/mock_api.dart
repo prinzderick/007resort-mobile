@@ -406,6 +406,7 @@ class MockR007Api implements R007Api {
     required String kind,
     required String hardwareId,
     required String registrationCode,
+    String? mode,
     required String idempotencyKey,
   }) => _call(
     () => _once(idempotencyKey, () {
@@ -428,6 +429,7 @@ class MockR007Api implements R007Api {
         deviceToken: 'mock-device-${_uuid.v4()}',
         kind: e.kind,
         name: name,
+        modeValue: e.mode,
         homeFacilityId: home?.id,
         homeFacilityKind: home?.kind,
         homeFacilityCode: home?.code,

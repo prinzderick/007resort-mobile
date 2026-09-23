@@ -19,14 +19,19 @@ const realCfg = AppConfig(
   environment: 'test',
 );
 
-DeviceIdentity dev(String kind, {String? home, String? homeCode}) =>
-    DeviceIdentity(
-      deviceId: 'd',
-      deviceToken: 't',
-      kind: kind,
-      homeFacilityId: home,
-      homeFacilityCode: homeCode,
-    );
+DeviceIdentity dev(
+  String kind, {
+  String? home,
+  String? homeCode,
+  String? mode,
+}) => DeviceIdentity(
+  deviceId: 'd',
+  deviceToken: 't',
+  kind: kind,
+  modeValue: mode,
+  homeFacilityId: home,
+  homeFacilityCode: homeCode,
+);
 
 AuthSession sess({bool locked = false}) => AuthSession(
   accessToken: 'a',
@@ -71,17 +76,34 @@ void main() {
       String route(DeviceIdentity d) =>
           baseRouteFor(AppState(device: d, session: sess()), mockCfg);
       expect(
-        route(dev('MOBILE_TABLET', home: 'f', homeCode: 'RESTAURANT')),
+        route(
+          dev(
+            'MOBILE_TABLET',
+            home: 'f',
+            homeCode: 'RESTAURANT',
+            mode: 'SUPERVISOR',
+          ),
+        ),
         Routes.supervisor,
       );
       expect(
-        route(dev('MOBILE_TABLET', home: 'f', homeCode: 'SPORTS_STORE')),
+        route(
+          dev(
+            'MOBILE_TABLET',
+            home: 'f',
+            homeCode: 'SPORTS_STORE',
+            mode: 'SPORTS_STORE',
+          ),
+        ),
         Routes.store,
       );
       expect(route(dev('ENTRANCE_SCANNER', home: 'f')), Routes.entrance);
       // unknown role never unlocks a UI
       expect(route(dev('POS_TERMINAL')), Routes.unresolved);
-      expect(route(dev('MOBILE_TABLET', home: 'f')), Routes.unresolved);
+      expect(
+        route(dev('MOBILE_TABLET', home: 'f', mode: 'BOGUS')),
+        Routes.unresolved,
+      );
     });
   });
 

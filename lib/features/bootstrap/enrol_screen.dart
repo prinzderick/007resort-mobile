@@ -16,7 +16,7 @@ class EnrolScreen extends ConsumerStatefulWidget {
 class _EnrolScreenState extends ConsumerState<EnrolScreen> {
   final _name = TextEditingController();
   final _code = TextEditingController();
-  String _kind = 'MOBILE_TABLET';
+  String _mode = 'ATTENDANT';
   bool _busy = false;
   String? _error;
 
@@ -32,8 +32,9 @@ class _EnrolScreenState extends ConsumerState<EnrolScreen> {
     try {
       await ref
           .read(appControllerProvider.notifier)
-          .enrol(name: _name.text.trim(), code: _code.text.trim(), kind: _kind);
-    } on Object catch (e) {
+          .enrol(name: _name.text.trim(), code: _code.text.trim(), mode: _mode);
+    } on Object catch (e, st) {
+      debugPrint('enrol failed: $e\n$st');
       if (mounted) setState(() => _error = describeError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -59,7 +60,7 @@ class _EnrolScreenState extends ConsumerState<EnrolScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'IT gives you a one-time registration code. The tablet\'s role is set on the server.',
+                'IT gives you a one-time registration code. The role you pick is recorded on the server.',
               ),
               const SizedBox(height: 24),
               TextField(
@@ -83,27 +84,32 @@ class _EnrolScreenState extends ConsumerState<EnrolScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                key: const Key('enrol-kind'),
+                key: const Key('enrol-mode'),
                 isExpanded: true,
-                initialValue: _kind,
+                initialValue: _mode,
                 decoration: const InputDecoration(
-                  labelText: 'Device type',
+                  labelText: 'Tablet role',
                   prefixIcon: Icon(Icons.devices_other),
                 ),
                 items: const [
                   DropdownMenuItem(
-                    value: 'MOBILE_TABLET',
-                    child: Text(
-                      'Tablet (waiter / supervisor / store)',
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    value: 'ATTENDANT',
+                    child: Text('Attendant (waiter / bartender / cashier)'),
                   ),
                   DropdownMenuItem(
-                    value: 'ENTRANCE_SCANNER',
+                    value: 'SUPERVISOR',
+                    child: Text('Supervisor (approvals)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'SPORTS_ENTRANCE',
                     child: Text('Sports Entrance scanner'),
                   ),
+                  DropdownMenuItem(
+                    value: 'SPORTS_STORE',
+                    child: Text('Sports Store (release / return)'),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _kind = v ?? _kind),
+                onChanged: (v) => setState(() => _mode = v ?? _mode),
               ),
               if (mock) ...[
                 const SizedBox(height: 16),

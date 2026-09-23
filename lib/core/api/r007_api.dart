@@ -252,6 +252,7 @@ abstract class R007Api {
     required String kind,
     required String hardwareId,
     required String registrationCode,
+    String? mode,
     required String idempotencyKey,
   });
   Future<DeviceIdentity> getDevice(String deviceId);

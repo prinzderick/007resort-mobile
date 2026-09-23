@@ -129,8 +129,12 @@ final initialAppStateProvider = Provider<AppState>(
   (_) => throw UnimplementedError('initialAppStateProvider must be overridden'),
 );
 
-final serverUrlProvider = Provider<String?>(
-  (ref) => ref.watch(appControllerProvider.select((s) => s.serverUrl)),
+/// Server address, held outside [appControllerProvider] on purpose:
+/// [apiProvider] watches it and [AppController] reads [apiProvider], so
+/// deriving it from the controller state created a provider cycle
+/// (CircularDependencyError on enrolment in real mode).
+final serverUrlProvider = StateProvider<String?>(
+  (ref) => ref.read(initialAppStateProvider).serverUrl,
 );
 
 /// The single backend seam: Mock (`R007_MOCK=true`) or the real HTTP API.
@@ -195,17 +199,17 @@ class AppController extends Notifier<AppState> {
   Future<void> setServerUrl(String url) async {
     final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
     await _kv.write(Keys.serverUrl, clean);
+    ref.read(serverUrlProvider.notifier).state = clean;
     state = state.copyWith(serverUrl: clean);
   }
 
   Future<void> forgetServer() async {
     await _kv.delete(Keys.serverUrl);
     await resetDevice();
-    state = AppState(
-      serverUrl: ref.read(appConfigProvider).presetApiBaseUrl.isEmpty
-          ? null
-          : ref.read(appConfigProvider).presetApiBaseUrl,
-    );
+    final preset = ref.read(appConfigProvider).presetApiBaseUrl;
+    final url = preset.isEmpty ? null : preset;
+    ref.read(serverUrlProvider.notifier).state = url;
+    state = AppState(serverUrl: url);
   }
 
   Future<String> hardwareId() async {
@@ -221,41 +225,19 @@ class AppController extends Notifier<AppState> {
     required String name,
     required String code,
     String kind = 'MOBILE_TABLET',
+    String? mode,
   }) async {
-    var device = await _api.registerDevice(
+    final device = await _api.registerDevice(
       name: name,
       kind: kind,
       hardwareId: await hardwareId(),
       registrationCode: code,
+      mode: mode,
       idempotencyKey: newId(),
     );
     _api.setDeviceToken(device.deviceToken);
-    device = await _withFacilityKind(device);
     await _persistJson(Keys.device, device.toJson());
     state = state.copyWith(device: device);
-  }
-
-  /// The contract has no `mode`; the home facility's kind decides the UI.
-  Future<DeviceIdentity> _withFacilityKind(DeviceIdentity d) async {
-    if (!d.needsFacilityKind) return d;
-    try {
-      return d.withFacility(await _api.getFacility(d.homeFacilityId!));
-    } on ApiProblem {
-      return d; // retried after sign-in
-    }
-  }
-
-  /// Called after sign-in when the mode could not be resolved at enrolment.
-  Future<void> resolveDeviceMode() async {
-    final d = state.device;
-    if (d == null || !d.needsFacilityKind) return;
-    try {
-      final r = d.withFacility(await _api.getFacility(d.homeFacilityId!));
-      await _persistJson(Keys.device, r.toJson());
-      state = state.copyWith(device: r);
-    } on ApiProblem {
-      // leave unresolved; UI shows a retry
-    }
   }
 
   Future<void> resetDevice() async {
@@ -290,7 +272,6 @@ class AppController extends Notifier<AppState> {
       next = next.copyWith(clearCheckout: true);
     }
     state = next;
-    await resolveDeviceMode();
     await _autoCheckout();
   }
 

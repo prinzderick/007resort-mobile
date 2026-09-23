@@ -219,6 +219,7 @@ class HttpR007Api implements R007Api {
     required String kind,
     required String hardwareId,
     required String registrationCode,
+    String? mode,
     required String idempotencyKey,
   }) async {
     final r = _obj(
@@ -228,6 +229,7 @@ class HttpR007Api implements R007Api {
         body: {
           'name': name,
           'kind': kind,
+          'mode': ?mode,
           'hardwareId': hardwareId,
           'platform': 'android',
           'appVersion': AppConfig.appVersion,

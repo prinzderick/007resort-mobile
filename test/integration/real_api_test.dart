@@ -84,10 +84,7 @@ void main() {
       expect(session.staff.permissions, isNotEmpty);
 
       // Device role resolution (kind + home facility code) must not be "unknown".
-      var d = await api.getDevice(device.deviceId);
-      if (d.homeFacilityId != null) {
-        d = d.withFacility(await api.getFacility(d.homeFacilityId!));
-      }
+      final d = await api.getDevice(device.deviceId);
       // ignore: avoid_print
       print('device mode = ${d.mode.apiValue} (home=${d.homeFacilityCode})');
       expect(d.mode.apiValue, isNot('UNREGISTERED'));

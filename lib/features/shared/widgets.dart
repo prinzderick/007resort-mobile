@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -19,7 +20,10 @@ String describeError(Object e) {
       _ => e.message,
     };
   }
-  return 'Something went wrong. Please try again.';
+  debugPrint('describeError: unexpected ${e.runtimeType}: $e');
+  return kDebugMode
+      ? 'Something went wrong (${e.runtimeType}). Please try again.'
+      : 'Something went wrong. Please try again.';
 }
 
 Color orderStatusColor(String status) => switch (status) {

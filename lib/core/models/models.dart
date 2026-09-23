@@ -178,12 +178,18 @@ class FacilityRules {
 }
 
 /// Result of device enrolment / lookup (contract `Device` + `deviceToken`).
+///
+/// The UI persona comes from the server's explicit `mode` field (never
+/// inferred from the home facility). `homeFacility {id, code, name, kind}` is
+/// a summary embedded in the device so no protected lookup is needed before
+/// staff sign in.
 class DeviceIdentity {
   const DeviceIdentity({
     required this.deviceId,
     required this.deviceToken,
     this.kind = 'MOBILE_TABLET',
     this.name = '',
+    this.modeValue,
     this.homeFacilityId,
     this.homeFacilityKind,
     this.homeFacilityCode,
@@ -192,45 +198,46 @@ class DeviceIdentity {
     this.checkoutFacilityId,
   });
 
-  factory DeviceIdentity.fromJson(Json j, {String? token}) => DeviceIdentity(
-    deviceId: j.str('id', j.str('deviceId')),
-    deviceToken: token ?? j.str('deviceToken'),
-    kind: j.str('kind', 'MOBILE_TABLET'),
-    name: j.str('name'),
-    homeFacilityId: j.strOrNull('homeFacilityId'),
-    homeFacilityKind: j.strOrNull('homeFacilityKind'),
-    homeFacilityCode: j.strOrNull('homeFacilityCode'),
-    homeFacilityName: j.strOrNull('homeFacilityName'),
-    checkoutStaffId: j.obj('checkout').strOrNull('staffId'),
-    checkoutFacilityId: j.obj('checkout').strOrNull('facilityId'),
-  );
+  factory DeviceIdentity.fromJson(Json j, {String? token}) {
+    final home = j.obj('homeFacility');
+    return DeviceIdentity(
+      deviceId: j.str('id', j.str('deviceId')),
+      deviceToken: token ?? j.str('deviceToken'),
+      kind: j.str('kind', 'MOBILE_TABLET'),
+      name: j.str('name'),
+      modeValue: j.strOrNull('mode'),
+      homeFacilityId: home.strOrNull('id') ?? j.strOrNull('homeFacilityId'),
+      homeFacilityKind:
+          home.strOrNull('kind') ?? j.strOrNull('homeFacilityKind'),
+      homeFacilityCode:
+          home.strOrNull('code') ?? j.strOrNull('homeFacilityCode'),
+      homeFacilityName:
+          home.strOrNull('name') ?? j.strOrNull('homeFacilityName'),
+      checkoutStaffId: j.obj('checkout').strOrNull('staffId'),
+      checkoutFacilityId: j.obj('checkout').strOrNull('facilityId'),
+    );
+  }
 
+  /// Persisted form (same shape as the API, so it round-trips `fromJson`).
   Json toJson() => {
     'id': deviceId,
     'deviceToken': deviceToken,
     'kind': kind,
     'name': name,
+    'mode': modeValue,
     'homeFacilityId': homeFacilityId,
     'homeFacilityKind': homeFacilityKind,
     'homeFacilityCode': homeFacilityCode,
     'homeFacilityName': homeFacilityName,
   };
 
-  DeviceIdentity withFacility(Facility f) => DeviceIdentity(
-    deviceId: deviceId,
-    deviceToken: deviceToken,
-    kind: kind,
-    name: name,
-    homeFacilityId: homeFacilityId,
-    homeFacilityKind: f.kind,
-    homeFacilityCode: f.code,
-    homeFacilityName: f.name,
-  );
-
   final String deviceId;
   final String deviceToken;
   final String kind;
   final String name;
+
+  /// Raw `mode` sent by the server (ATTENDANT, SUPERVISOR, ...).
+  final String? modeValue;
   final String? homeFacilityId;
   final String? homeFacilityKind;
   final String? homeFacilityCode;
@@ -238,41 +245,19 @@ class DeviceIdentity {
   final String? checkoutStaffId;
   final String? checkoutFacilityId;
 
-  /// True when the mode cannot be decided yet (needs the home facility).
-  bool get needsFacilityKind =>
-      kind == 'MOBILE_TABLET' &&
-      homeFacilityId != null &&
-      homeFacilityKind == null &&
-      homeFacilityCode == null;
-
-  /// ASSUMED mapping (the contract has no `mode` field). Verified against the
-  /// Laravel demo seed:
-  ///  * shared waiter pool tablets have home facility RECEPTION (or none);
-  ///  * `SPORTS_STORE` / `SPORTS_ARENA` home facilities are the sports tablets;
-  ///  * any other home facility (RESTAURANT, INDOOR_CLUB, POOL_BAR, ...) is a
-  ///    dedicated supervisor tablet.
-  /// Facility `code` is preferred over `kind` (kind `STORE` is ambiguous).
+  /// The persona from the server's explicit `mode`. Only when an older server
+  /// omits it is the documented server default for the device kind used
+  /// (MOBILE_TABLET -> ATTENDANT, ENTRANCE_SCANNER -> SPORTS_ENTRANCE).
+  /// Unknown values never unlock a UI.
   DeviceMode get mode {
-    if (kind == 'ENTRANCE_SCANNER') return DeviceMode.sportsEntrance;
-    if (kind != 'MOBILE_TABLET') return DeviceMode.unregistered;
-    if (homeFacilityId == null) return DeviceMode.attendant;
-    final code = (homeFacilityCode ?? '').toUpperCase();
-    final kindU = (homeFacilityKind ?? '').toUpperCase();
-    if (code.isEmpty && kindU.isEmpty) return DeviceMode.unregistered;
-    if (code.contains('RECEPTION') || kindU == 'RECEPTION') {
-      return DeviceMode.attendant;
+    if (modeValue != null && modeValue!.isNotEmpty) {
+      return DeviceMode.fromApi(modeValue);
     }
-    if ((code.contains('SPORT') && code.contains('STORE')) ||
-        kindU == 'SPORTS_STORE') {
-      return DeviceMode.sportsStore;
-    }
-    if (code.contains('ENTRANCE') ||
-        code == 'SPORTS_ARENA' ||
-        kindU == 'SPORTS_ENTRANCE' ||
-        kindU == 'SPORTS') {
-      return DeviceMode.sportsEntrance;
-    }
-    return DeviceMode.supervisor;
+    return switch (kind) {
+      'MOBILE_TABLET' => DeviceMode.attendant,
+      'ENTRANCE_SCANNER' => DeviceMode.sportsEntrance,
+      _ => DeviceMode.unregistered,
+    };
   }
 }
 

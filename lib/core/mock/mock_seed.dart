@@ -106,17 +106,22 @@ final List<MockStaff> mockStaff = [
 
 /// Registration codes -> device kind / home facility (mock only).
 class MockEnrolment {
-  const MockEnrolment(this.kind, this.homeFacilityId);
+  const MockEnrolment(this.kind, this.homeFacilityId, this.mode);
   final String kind;
+  final String mode;
   final String? homeFacilityId;
 }
 
 const mockEnrolmentCodes = <String, MockEnrolment>{
   // Like the real demo seed: the shared waiter pool is homed at Reception.
-  'ATT-2026': MockEnrolment('MOBILE_TABLET', 'f-reception'),
-  'SUP-2026': MockEnrolment('MOBILE_TABLET', 'f-restaurant'),
-  'ENT-2026': MockEnrolment('ENTRANCE_SCANNER', 'f-sports-entrance'),
-  'STO-2026': MockEnrolment('MOBILE_TABLET', 'f-sports-store'),
+  'ATT-2026': MockEnrolment('MOBILE_TABLET', 'f-reception', 'ATTENDANT'),
+  'SUP-2026': MockEnrolment('MOBILE_TABLET', 'f-restaurant', 'SUPERVISOR'),
+  'ENT-2026': MockEnrolment(
+    'ENTRANCE_SCANNER',
+    'f-sports-entrance',
+    'SPORTS_ENTRANCE',
+  ),
+  'STO-2026': MockEnrolment('MOBILE_TABLET', 'f-sports-store', 'SPORTS_STORE'),
 };
 
 const mockFacilities = <Facility>[

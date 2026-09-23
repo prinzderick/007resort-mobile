@@ -63,6 +63,12 @@ class ConnectivityController extends Notifier<ConnState> {
     if (state.checking) {
       return;
     }
+    // Nothing to probe before the server address is configured.
+    if (!ref.read(appConfigProvider).useMock &&
+        ref.read(serverUrlProvider) == null) {
+      if (!state.online) state = state.copyWith(online: true);
+      return;
+    }
     state = state.copyWith(checking: true);
     try {
       await ref.read(apiProvider).systemInfo();

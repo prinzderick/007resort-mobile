@@ -26,14 +26,13 @@ class UnresolvedScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Device: ${d?.name ?? '-'} (${d?.kind ?? '-'}). Ask IT to check its registration.',
+                'Device: ${d?.name ?? '-'} (${d?.kind ?? '-'} / ${d?.modeValue ?? 'no mode'}). Ask IT to check its registration.',
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () => ref
-                    .read(appControllerProvider.notifier)
-                    .resolveDeviceMode(),
-                child: const Text('Try again'),
+                onPressed: () =>
+                    ref.read(appControllerProvider.notifier).resetDevice(),
+                child: const Text('Reset tablet enrolment'),
               ),
               TextButton(
                 onPressed: () =>

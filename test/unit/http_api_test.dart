@@ -449,7 +449,7 @@ void main() {
     );
     expect(d.deviceId, 'd1');
     expect(d.deviceToken, 'secret-device-token');
-    expect(d.mode.apiValue, 'ATTENDANT'); // no home facility => shared pool
+    expect(d.mode.apiValue, 'ATTENDANT');
     final body = a.calls.first.body! as Map;
     expect(body['registrationCode'], 'ABC-123');
     expect(body['kind'], 'MOBILE_TABLET');
@@ -533,72 +533,57 @@ void main() {
     expect(f.map((x) => x.id), ['root', 'r1']);
   });
 
-  test('device mode resolution (verified against the Laravel demo seed)', () {
-    DeviceIdentity d(
-      String kind, {
-      String? home,
-      String? fKind,
-      String? code,
-    }) => DeviceIdentity(
-      deviceId: 'd',
-      deviceToken: 't',
-      kind: kind,
-      homeFacilityId: home,
-      homeFacilityKind: fKind,
-      homeFacilityCode: code,
-    );
-    expect(d('MOBILE_TABLET').mode.apiValue, 'ATTENDANT');
-    expect(
-      d(
-        'MOBILE_TABLET',
-        home: 'f',
-        fKind: 'RECEPTION',
-        code: 'RECEPTION',
-      ).mode.apiValue,
-      'ATTENDANT',
-    );
-    expect(
-      d(
-        'MOBILE_TABLET',
-        home: 'f',
-        fKind: 'RESTAURANT',
-        code: 'RESTAURANT',
-      ).mode.apiValue,
-      'SUPERVISOR',
-    );
-    expect(
-      d(
-        'MOBILE_TABLET',
-        home: 'f',
-        fKind: 'BAR',
-        code: 'POOL_BAR',
-      ).mode.apiValue,
-      'SUPERVISOR',
-    );
-    // kind STORE is ambiguous (Main Store vs Sports Store): the code decides
-    expect(
-      d(
-        'MOBILE_TABLET',
-        home: 'f',
-        fKind: 'STORE',
-        code: 'SPORTS_STORE',
-      ).mode.apiValue,
-      'SPORTS_STORE',
-    );
-    expect(
-      d(
-        'MOBILE_TABLET',
-        home: 'f',
-        fKind: 'SPORTS',
-        code: 'SPORTS_ARENA',
-      ).mode.apiValue,
-      'SPORTS_ENTRANCE',
-    );
-    expect(d('ENTRANCE_SCANNER').mode.apiValue, 'SPORTS_ENTRANCE');
-    // unresolved facility never unlocks a UI
-    expect(d('MOBILE_TABLET', home: 'f').mode.apiValue, 'UNREGISTERED');
-    expect(d('POS_TERMINAL').mode.apiValue, 'UNREGISTERED');
-  });
+  test(
+    'device mode comes from the server `mode` field, never the facility',
+    () {
+      DeviceIdentity fromApi(Map<String, dynamic> j) =>
+          DeviceIdentity.fromJson({'id': 'd', ...j}, token: 't');
+      final sup = fromApi({
+        'kind': 'MOBILE_TABLET',
+        'mode': 'SUPERVISOR',
+        'homeFacilityId': 'f',
+        'homeFacility': {
+          'id': 'f',
+          'code': 'RESTAURANT',
+          'name': 'Restaurant',
+          'kind': 'RESTAURANT',
+        },
+      });
+      expect(sup.mode.apiValue, 'SUPERVISOR');
+      expect(sup.homeFacilityCode, 'RESTAURANT');
+      expect(sup.homeFacilityName, 'Restaurant');
+      // an explicit mode wins even when the facility looks like something else
+      expect(
+        fromApi({
+          'kind': 'MOBILE_TABLET',
+          'mode': 'SPORTS_STORE',
+          'homeFacility': {'id': 'f', 'code': 'RECEPTION', 'kind': 'RECEPTION'},
+        }).mode.apiValue,
+        'SPORTS_STORE',
+      );
+      expect(
+        fromApi({
+          'kind': 'MOBILE_TABLET',
+          'mode': 'SPORTS_ENTRANCE',
+        }).mode.apiValue,
+        'SPORTS_ENTRANCE',
+      );
+      // unknown mode never unlocks a UI
+      expect(
+        fromApi({'kind': 'MOBILE_TABLET', 'mode': 'ROOT'}).mode.apiValue,
+        'UNREGISTERED',
+      );
+      // older server without `mode`: documented server default for the kind
+      expect(fromApi({'kind': 'MOBILE_TABLET'}).mode.apiValue, 'ATTENDANT');
+      expect(fromApi({'kind': 'POS_TERMINAL'}).mode.apiValue, 'UNREGISTERED');
+      // round-trips through local storage
+      expect(DeviceIdentity.fromJson(sup.toJson()).mode.apiValue, 'SUPERVISOR');
+      expect(
+        DeviceIdentity.fromJson(sup.toJson()).homeFacilityCode,
+        'RESTAURANT',
+      );
+    },
+  );
 
   test(
     'realtime host: server-local addresses are replaced by the API host',
