@@ -185,9 +185,10 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
               label: Text('Release selected (${selRelease.length})'),
             ),
             SizedBox(
-              width: 150,
+              width: 200,
               child: DropdownButtonFormField<String>(
                 key: const Key('condition'),
+                isExpanded: true,
                 initialValue: _condition,
                 decoration: const InputDecoration(labelText: 'Condition'),
                 items: const [

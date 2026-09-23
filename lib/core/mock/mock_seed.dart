@@ -44,6 +44,20 @@ const _waiter = {
   'order.discount.execute',
 };
 
+/// Trainee bundle: can take/send orders but holds neither void nor discount
+/// permission, so the UI hides those direct actions and offers the supervisor
+/// PIN route instead.
+const _trainee = {
+  'order.view',
+  'order.create',
+  'order.line.add',
+  'order.line.remove_unsent',
+  'order.send',
+  'order.serve',
+  'tab.open',
+  'tab.view_own_facility',
+};
+
 final List<MockStaff> mockStaff = [
   const MockStaff(
     id: '11111111-0000-4000-8000-000000000001',
@@ -57,11 +71,11 @@ final List<MockStaff> mockStaff = [
   const MockStaff(
     id: '11111111-0000-4000-8000-000000000002',
     username: 'chidi',
-    name: 'Chidi Eze',
+    name: 'Chidi Eze (trainee)',
     staffNumber: '1002',
     pin: '2345',
     nfcUid: '04A1B2C4',
-    permissions: _waiter,
+    permissions: _trainee,
   ),
   const MockStaff(
     id: '11111111-0000-4000-8000-000000000003',

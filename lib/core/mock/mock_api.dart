@@ -1069,7 +1069,8 @@ class MockR007Api implements R007Api {
   }) => _call(
     () => _once(idempotencyKey, () {
       final o = _getOrder(orderId);
-      _require('order.void.execute');
+      // A valid supervisor step-up token authorises inline (contract flow A2 3b).
+      if (stepUpToken == null) _require('order.void.execute');
       if (reason.trim().length < 3) {
         throw const ApiProblem(
           status: 422,
@@ -1103,7 +1104,7 @@ class MockR007Api implements R007Api {
   }) => _call(
     () => _once(idempotencyKey, () {
       final o = _getOrder(orderId);
-      _require('order.discount.execute');
+      if (stepUpToken == null) _require('order.discount.execute');
       if (reason.trim().length < 3) {
         throw const ApiProblem(
           status: 422,

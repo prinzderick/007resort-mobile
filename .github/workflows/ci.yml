@@ -29,7 +29,7 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: Analyze
         run: flutter analyze
-      - name: Test
+      - name: Test (real-API integration test skips unless R007_API_BASE_URL is set)
         run: flutter test
 
   build-apk:
@@ -47,13 +47,21 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build debug APK
+      - name: Build debug APK (real API; server address entered on the tablet)
         run: flutter build apk --debug
+      - name: Keep the real-API APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk build/007resort-mobile-debug.apk
+      - name: Build demo APK (built-in mock server, R007_MOCK=true)
+        run: flutter build apk --debug --dart-define=R007_MOCK=true
+      - name: Keep the demo APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk build/007resort-mobile-demo-mock.apk
       - uses: actions/upload-artifact@v4
         with:
           name: 007resort-mobile-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 7
+          path: |
+            build/007resort-mobile-debug.apk
+            build/007resort-mobile-demo-mock.apk
+          retention-days: 14
 
   secret-scan:
     name: Secret scan (gitleaks)
