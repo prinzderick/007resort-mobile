@@ -142,6 +142,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                       ListTile(
                         key: Key('cat-${k.id}'),
                         selected: k.id == cat,
+                        selectedTileColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
                         title: Text(
                           k.name,
                           style: const TextStyle(fontWeight: FontWeight.w600),

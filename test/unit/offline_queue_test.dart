@@ -95,6 +95,29 @@ void main() {
     },
   );
 
+  test(
+    'a drain requested while another is stopping offline is retried once',
+    () async {
+      final q = newQueue();
+      await q.enqueueAll([op('a'), op('b')]);
+      var online = false;
+      final seen = <String>[];
+      Future<void> exec(QueuedOp o) async {
+        await Future<void>.delayed(Duration.zero);
+        if (!online) throw const ApiOfflineException();
+        seen.add(o.id);
+      }
+
+      final first = q.drain(exec); // fails offline...
+      online = true; // ...connectivity returns while it is still unwinding
+      final second = await q.drain(exec); // returns immediately (busy)
+      expect(second, DrainOutcome.drained);
+      await first;
+      expect(seen, ['a', 'b']);
+      expect(q.pending, isEmpty);
+    },
+  );
+
   test('5xx/429 are transient: kept for retry', () async {
     final q = newQueue();
     await q.enqueueAll([op('a')]);

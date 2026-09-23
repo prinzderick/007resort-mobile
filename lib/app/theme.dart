@@ -47,6 +47,7 @@ ThemeData buildR007Theme({Brightness brightness = Brightness.light}) {
     ),
     inputDecorationTheme: const InputDecorationTheme(
       border: OutlineInputBorder(),
+      floatingLabelBehavior: FloatingLabelBehavior.always,
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     ),
     listTileTheme: const ListTileThemeData(

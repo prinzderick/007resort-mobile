@@ -30,7 +30,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sports Store  -  ${app.facilityName ?? ''}'),
+        title: const Text('Sports Store'),
         actions: [
           Center(child: Text(app.staff?.name ?? '')),
           if (e != null)

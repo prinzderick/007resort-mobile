@@ -184,6 +184,7 @@ class OfflineQueue {
   final List<QueuedOp> _items = [];
   final _changes = StreamController<List<QueuedOp>>.broadcast();
   bool _draining = false;
+  bool _rerun = false;
 
   List<QueuedOp> get items => List.unmodifiable(_items);
   List<QueuedOp> get pending => _items.where((o) => !o.failed).toList();
@@ -261,13 +262,32 @@ class OfflineQueue {
   bool hasPendingFor(String orderId) =>
       _items.any((o) => o.orderId == orderId && !o.failed);
 
-  /// Replays pending ops in order. Safe to call concurrently (no-op if busy).
+  /// Replays pending ops in order. Safe to call concurrently: a call made while
+  /// a replay is running is remembered, and if that replay stops on a network
+  /// error it is retried once (the caller may have just regained connectivity).
   Future<DrainOutcome> drain(
     OpExecutor execute, {
     void Function(QueuedOp op)? onDone,
     void Function(QueuedOp op)? onFailed,
   }) async {
-    if (_draining) return DrainOutcome.drained;
+    if (_draining) {
+      _rerun = true;
+      return DrainOutcome.drained;
+    }
+    var out = await _drainOnce(execute, onDone: onDone, onFailed: onFailed);
+    while (_rerun && out == DrainOutcome.offline) {
+      _rerun = false;
+      out = await _drainOnce(execute, onDone: onDone, onFailed: onFailed);
+    }
+    _rerun = false;
+    return out;
+  }
+
+  Future<DrainOutcome> _drainOnce(
+    OpExecutor execute, {
+    void Function(QueuedOp op)? onDone,
+    void Function(QueuedOp op)? onFailed,
+  }) async {
     if (pending.isEmpty) return DrainOutcome.empty;
     _draining = true;
     try {

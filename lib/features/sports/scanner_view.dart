@@ -44,6 +44,7 @@ class _CameraScannerState extends State<CameraScanner> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          const ColoredBox(color: Colors.black),
           MobileScanner(
             controller: _controller,
             onDetect: (capture) {

@@ -104,26 +104,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   runSpacing: 12,
                   children: [
                     for (final f in _facilities!)
-                      SizedBox(
-                        width: 220,
-                        height: 96,
-                        child: ChoiceChip(
-                          key: Key('facility-${f.id}'),
-                          selected: _selected?.id == f.id,
-                          onSelected: (_) => setState(() => _selected = f),
-                          label: SizedBox(
-                            width: 190,
-                            child: Text(
-                              f.name,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          showCheckmark: true,
-                        ),
+                      _FacilityTile(
+                        key: Key('facility-${f.id}'),
+                        facility: f,
+                        selected: _selected?.id == f.id,
+                        onTap: () => setState(() => _selected = f),
                       ),
                   ],
                 ),
@@ -139,6 +124,59 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 label: const Text('Check out tablet'),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FacilityTile extends StatelessWidget {
+  const _FacilityTile({
+    super.key,
+    required this.facility,
+    required this.selected,
+    required this.onTap,
+  });
+  final Facility facility;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 224,
+      height: 96,
+      child: Material(
+        color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Icons.check_circle : Icons.storefront_outlined,
+                  color: selected ? scheme.onPrimary : scheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    facility.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? scheme.onPrimary : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

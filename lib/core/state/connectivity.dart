@@ -33,18 +33,19 @@ class ConnectivityController extends Notifier<ConnState> {
   @override
   ConnState build() {
     ref.onDispose(() => _timer?.cancel());
-    if (ref.read(timersEnabledProvider)) _schedule();
+    if (ref.read(timersEnabledProvider)) {
+      // NB: never read `state` inside build(); schedule via a timer callback.
+      _timer = Timer(const Duration(seconds: 12), _tick);
+    }
     return const ConnState();
   }
 
-  void _schedule() {
+  Future<void> _tick() async {
+    await probe();
     _timer?.cancel();
     _timer = Timer(
       state.online ? const Duration(seconds: 12) : const Duration(seconds: 4),
-      () async {
-        await probe();
-        _schedule();
-      },
+      _tick,
     );
   }
 
@@ -59,22 +60,29 @@ class ConnectivityController extends Notifier<ConnState> {
   }
 
   Future<void> probe() async {
-    if (state.checking) return;
+    if (state.checking) {
+      return;
+    }
     state = state.copyWith(checking: true);
     try {
       await ref.read(apiProvider).systemInfo();
-      state = state.copyWith(checking: false);
-      reportOnline();
-      // Even when never offline, flush anything left in the queue.
-      if (ref.read(outboxProvider).hasPending) {
-        unawaited(ref.read(outboxProvider.notifier).drain());
-      }
+      _markReachable();
     } on ApiOfflineException {
       state = state.copyWith(checking: false, online: false);
+      return;
     } on Object {
-      // Server answered with an error => reachable.
-      state = state.copyWith(checking: false);
-      reportOnline();
+      // Server answered with an error => it is reachable.
+      _markReachable();
+    }
+    // Reachable: flush anything waiting (in order) before screens reload.
+    if (ref.read(outboxProvider).hasPending) {
+      await ref.read(outboxProvider.notifier).drain();
     }
   }
+
+  void _markReachable() => state = state.copyWith(
+    checking: false,
+    online: true,
+    lastOkAt: DateTime.now().toUtc(),
+  );
 }

@@ -176,7 +176,7 @@ class _EntranceScreenState extends ConsumerState<EntranceScreen> {
           : null,
       appBar: showAppBar
           ? AppBar(
-              title: Text('Sports Entrance  -  ${app.facilityName ?? ''}'),
+              title: const Text('Sports Entrance'),
               actions: [
                 Center(child: Text(app.staff?.name ?? '')),
                 IconButton(
