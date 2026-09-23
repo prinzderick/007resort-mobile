@@ -1,36 +1,66 @@
+/// Reverb/Pusher connection parameters (ASSUMED defaults; overridable).
+///
+/// Normally taken from `GET /system/info` -> `realtime`; the dart-defines are
+/// only a fallback for servers that do not publish it.
+class RealtimeConfig {
+  const RealtimeConfig({
+    this.host = '',
+    this.appKey = const String.fromEnvironment(
+      'R007_REVERB_KEY',
+      defaultValue: 'r007-local',
+    ),
+    this.port = const int.fromEnvironment(
+      'R007_REVERB_PORT',
+      defaultValue: 8081,
+    ),
+    this.scheme = const String.fromEnvironment(
+      'R007_REVERB_SCHEME',
+      defaultValue: 'ws',
+    ),
+  });
+  final String host;
+  final String appKey;
+  final int port;
+
+  /// `ws` or `wss`.
+  final String scheme;
+}
+
 /// Build-time configuration supplied via `--dart-define`.
 ///
-/// | Define               | Default                   |
-/// |----------------------|---------------------------|
-/// | R007_API_BASE_URL  | http://10.0.2.2:5080      |
-/// | R007_ENV           | dev                       |
+/// | Define              | Default                | Meaning                          |
+/// |---------------------|------------------------|----------------------------------|
+/// | R007_MOCK           | false                  | Run against the built-in Mock API |
+/// | R007_API_BASE_URL   | (empty)                | Preset server URL; else entered in-app |
+/// | R007_ENV            | dev                    | dev / staging / production        |
+/// | R007_IDLE_LOCK_SECS | 300                    | Auto-lock after inactivity        |
 ///
-/// `10.0.2.2` is the Android emulator alias for the host machine. Never put
-/// secrets in dart-defines: they are embedded in the APK.
+/// Never put secrets in dart-defines: they are embedded in the APK.
 class AppConfig {
-  const AppConfig({required this.apiBaseUrl, required this.environment});
+  const AppConfig({
+    required this.useMock,
+    required this.presetApiBaseUrl,
+    required this.environment,
+    this.idleLockSeconds = 300,
+  });
 
-  factory AppConfig.fromEnvironment() {
-    return const AppConfig(
-      apiBaseUrl: String.fromEnvironment(
-        'R007_API_BASE_URL',
-        defaultValue: defaultApiBaseUrl,
-      ),
-      environment: String.fromEnvironment(
-        'R007_ENV',
-        defaultValue: defaultEnvironment,
-      ),
-    );
-  }
+  factory AppConfig.fromEnvironment() => const AppConfig(
+    useMock: bool.fromEnvironment('R007_MOCK'),
+    presetApiBaseUrl: String.fromEnvironment('R007_API_BASE_URL'),
+    environment: String.fromEnvironment('R007_ENV', defaultValue: 'dev'),
+    idleLockSeconds: int.fromEnvironment(
+      'R007_IDLE_LOCK_SECS',
+      defaultValue: 300,
+    ),
+  );
 
-  static const String defaultApiBaseUrl = 'http://10.0.2.2:5080';
-  static const String defaultEnvironment = 'dev';
-
-  /// Base URL of the 007 Resort & Spa API (without the `/api/v1` prefix).
-  final String apiBaseUrl;
-
-  /// One of `dev`, `staging`, `production`.
+  final bool useMock;
+  final String presetApiBaseUrl;
   final String environment;
+  final int idleLockSeconds;
 
   bool get isProduction => environment == 'production';
+
+  /// Reported to the server on device registration.
+  static const appVersion = '0.1.0';
 }

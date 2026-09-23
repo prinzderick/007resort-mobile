@@ -47,5 +47,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - `dart format .` (CI fails on unformatted code).
 - `flutter analyze` must report no issues (see `analysis_options.yaml`).
 - Add or update tests with every change.
-- Do not add new dependencies (especially state management) without an
-  agreed decision recorded in 007resort-docs.
+- State management is **Riverpod**, navigation **go_router**, HTTP **dio**
+  (decisions recorded in the README). Do not add other state-management or
+  networking packages, or any new dependency, without an agreed decision
+  recorded in 007resort-docs.

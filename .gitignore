@@ -56,3 +56,4 @@ key.properties
 *.keystore
 google-services.json
 **/google-services.json
+android/build/
