@@ -75,6 +75,10 @@ class PusherClient {
     try {
       final ws = WebSocketChannel.connect(wsUri);
       _ws = ws;
+      // A failed handshake also completes `ready` with an error; without a
+      // handler it surfaces as an unhandled async exception. The stream's
+      // onError/onDone below already schedule the reconnect.
+      unawaited(ws.ready.then<void>((_) {}, onError: (Object _) {}));
       _sub = ws.stream.listen(
         (dynamic raw) => unawaited(_onMessage(raw.toString())),
         onError: (Object _) => _scheduleReconnect(),

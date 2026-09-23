@@ -316,7 +316,10 @@ class AppController extends Notifier<AppState> {
 
   Future<void> logout() async {
     final d = state.device;
-    if (d != null && state.isDedicated && state.checkout != null) {
+    // Dedicated tablets are auto-checked-out at sign-in and that record is not
+    // persisted, so after an app restart `checkout` is null even though the
+    // server still has the tablet checked out: always check in (best effort).
+    if (d != null && state.isDedicated && state.session != null) {
       try {
         await _api.checkinDevice(deviceId: d.deviceId, idempotencyKey: newId());
       } on Object {

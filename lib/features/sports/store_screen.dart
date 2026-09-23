@@ -229,10 +229,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
         'RETURNED' => ('RETURNED', R007Colors.greenDark),
         _ => ('NOT RELEASED', R007Colors.grey),
       },
-      _ => (
-        i.quantityRedeemed >= i.quantity ? 'RELEASED' : 'NOT RELEASED',
-        i.quantityRedeemed >= i.quantity ? R007Colors.orange : R007Colors.grey,
-      ),
+      _ => ('PAID - HAND OVER', R007Colors.greenDark),
     };
     final selectable = i.canRelease || i.canReturn;
     return Card(

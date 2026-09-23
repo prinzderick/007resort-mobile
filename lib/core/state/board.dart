@@ -254,7 +254,20 @@ class BoardController extends Notifier<BoardState> {
               : o,
       ];
       _detectReady(orders);
+      // A "ready" alert is stale once the order was served, settled or voided.
+      final stillReady = {
+        for (final o in orders)
+          if (o.hasReady && o.isOpen && o.status != OrderStatus.served) o.id,
+      };
+      final alerts = [
+        for (final a in state.alerts)
+          if (a.kind != 'ready' ||
+              a.orderId == null ||
+              stillReady.contains(a.orderId))
+            a,
+      ];
       state = state.copyWith(
+        alerts: alerts,
         orders: orders,
         tables: tables,
         tabs: results[2] as List<TabInfo>,

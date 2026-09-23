@@ -76,8 +76,11 @@ plus a Reverb server (ports/keys come from `GET /api/v1/system/info -> realtime`
 
 1. Put the tablet on the property Wi-Fi. Quick reachability check in the tablet browser: `http://<server-ip>:<port>/api/v1/system/info`.
 2. Install `007resort-mobile-debug.apk`. On first launch enter the **server address** -> *Connect* (verified against `/system/info`).
-3. **Enrol** with the one-time registration code. Waiter pool tablet = `MOBILE_TABLET` without a home facility;
-   supervisor/store tablets have a home facility (set in admin); the entrance scanner uses type *Sports Entrance scanner*.
+3. **Enrol** with a one-time registration code (`scripts/local-node.sh device-code <FACILITY>` on the server, or the admin UI).
+   Pick the **Tablet role** (Attendant / Supervisor / Sports Entrance / Sports Store): it is sent as `mode` and the server
+   returns it (with the `homeFacility` summary), so the UI persona always comes from the server. Suggested home facility per code:
+   waiter pool = RECEPTION, supervisor = RESTAURANT (or its outlet), entrance = SPORTS_ARENA, store = SPORTS_STORE.
+   Full step-by-step, with screenshots: `docs/REAL_API_TEST_REPORT.md`.
 4. Repeat the Demo A flows with real staff (staff number + PIN or NFC card). Run a second tablet as the **KDS / supervisor**
    and move tickets ACCEPTED -> IN PROGRESS -> READY: the waiter tablet raises the READY alert within a second.
 5. Sports: issue a booking at Reception (POS), show the entitlement QR to the Entrance and Store tablets.
@@ -86,7 +89,7 @@ plus a Reverb server (ports/keys come from `GET /api/v1/system/info -> realtime`
 ### If something does not work
 * *Cannot reach ...* on the address screen: wrong IP/port, tablet on guest Wi-Fi, or server firewall.
 * Enrolment `422`: registration code already used/expired - issue a new one.
-* *Tablet role not resolved*: the tablet's device kind/home facility is not one of the supported combinations
-  (see docs/configuration.md).
+* *Tablet role not resolved*: the server returned no/unknown `mode` for this device. Use *Reset tablet enrolment* and re-enrol.
+* *This device is already checked out*: someone did not return the tablet; an admin checks it in (`POST /devices/{id}/checkin`).
 * No READY sound but banner works: check tablet volume; realtime falls back to 10 s polling automatically.
 * Camera black: grant the camera permission, or use the code field / a handheld scanner (keyboard wedge).

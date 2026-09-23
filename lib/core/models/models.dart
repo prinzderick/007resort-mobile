@@ -751,7 +751,9 @@ class EntitlementItem {
   /// Items the store may hand over. Server truth still decides (409 on repeat).
   bool get canRelease => switch (kind) {
     'RENTAL' => rentalStatus == null || rentalStatus == 'NOT_RELEASED',
-    'ITEM' => quantityRedeemed < quantity,
+    // Goods (kind ITEM) are paid for at the till and are not released
+    // through the API (the server only releases RENTAL items), so the store
+    // never offers a release action for them.
     _ => false,
   };
   bool get canReturn => isRental && isReleased;
