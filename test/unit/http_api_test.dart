@@ -599,4 +599,27 @@ void main() {
     expect(d('MOBILE_TABLET', home: 'f').mode.apiValue, 'UNREGISTERED');
     expect(d('POS_TERMINAL').mode.apiValue, 'UNREGISTERED');
   });
+
+  test(
+    'realtime host: server-local addresses are replaced by the API host',
+    () {
+      final base = Uri.parse('http://192.168.1.10:8080');
+      const info = RealtimeInfo(
+        scheme: 'ws',
+        host: '127.0.0.1',
+        port: 8081,
+        appKey: 'k',
+      );
+      expect(realtimeConfigFor(base, info).host, '192.168.1.10');
+      expect(realtimeConfigFor(base, info).port, 8081);
+      const pub = RealtimeInfo(
+        scheme: 'wss',
+        host: 'rt.007resort.com',
+        port: 443,
+        appKey: 'k',
+      );
+      expect(realtimeConfigFor(base, pub).host, 'rt.007resort.com');
+      expect(realtimeConfigFor(base, null).host, '192.168.1.10');
+    },
+  );
 }

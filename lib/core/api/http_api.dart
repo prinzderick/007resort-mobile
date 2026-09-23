@@ -738,14 +738,7 @@ class HttpR007Api implements R007Api {
     final info = _info ?? await systemInfo();
     final rt = info.realtime;
     final base = Uri.parse(_baseUrl);
-    final cfg = rt == null
-        ? RealtimeConfig(host: base.host)
-        : RealtimeConfig(
-            host: rt.host.isEmpty ? base.host : rt.host,
-            port: rt.port,
-            appKey: rt.appKey,
-            scheme: rt.scheme,
-          );
+    final cfg = realtimeConfigFor(base, rt);
     final client = PusherClient(
       config: cfg,
       channels: [
@@ -766,4 +759,20 @@ class HttpR007Api implements R007Api {
 
   @override
   void close() => _dio.close(force: true);
+}
+
+/// Reverb host as published by the node may be a server-local address
+/// (`127.0.0.1`, `0.0.0.0`, `localhost`) that a tablet cannot reach: in that
+/// case use the host the tablet already uses for the API.
+RealtimeConfig realtimeConfigFor(Uri apiBase, RealtimeInfo? rt) {
+  if (rt == null) {
+    return RealtimeConfig(host: apiBase.host);
+  }
+  const local = {'', '0.0.0.0', 'localhost', '127.0.0.1', '::1'};
+  return RealtimeConfig(
+    host: local.contains(rt.host) ? apiBase.host : rt.host,
+    port: rt.port,
+    appKey: rt.appKey,
+    scheme: rt.scheme,
+  );
 }
