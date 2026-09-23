@@ -1,7 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The app is a thin client of the on-property 007 Resort & Spa API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Sports Entrance / Store scan QR codes with the camera. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <application
+        android:usesCleartextTraffic="true"
         android:label="007 Resort &amp; Spa"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
