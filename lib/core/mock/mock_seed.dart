@@ -42,6 +42,10 @@ const _waiter = {
   'tab.view_own_facility',
   'order.void.execute',
   'order.discount.execute',
+  // Waiter collection: may request the bill print and collect money, but
+  // never settles a bill (the cashier verifies).
+  'bill.print',
+  'payment.collect',
 };
 
 /// Trainee bundle: can take/send orders but holds neither void nor discount

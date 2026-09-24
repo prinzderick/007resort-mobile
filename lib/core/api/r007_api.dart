@@ -1,3 +1,4 @@
+import '../models/collection_models.dart';
 import '../models/models.dart';
 import '../util/json.dart';
 
@@ -221,7 +222,9 @@ class RealtimeEvent {
   const RealtimeEvent(this.name, this.data, {this.eventId});
 
   /// `order.updated`, `order.ready`, `table.updated`, `approval.requested`,
-  /// `approval.decided`, `device.command`, plus synthetic `realtime.connected`.
+  /// `approval.decided`, `device.command`, `bill.printed`, `payment.collected`,
+  /// `payment.confirmed`, `payment.rejected`, plus synthetic
+  /// `realtime.connected`.
   final String name;
   final Json data;
   final String? eventId;
@@ -365,6 +368,51 @@ abstract class R007Api {
     String entitlementId, {
     required List<String> itemIds,
     String condition = 'OK',
+    String? note,
+    required String idempotencyKey,
+  });
+
+  // ------------------------------------------------- waiter collection
+
+  /// `POST /orders/{id}/bill` - pre-bill request (`bill.print`). Idempotent.
+  Future<Order> printBill(String orderId, {required String idempotencyKey});
+
+  /// `POST /orders/{id}/collections` (a wire `Payment`). The waiter records / initiates a tender;
+  /// the result is never "paid": it is PENDING_CONFIRMATION (or
+  /// AWAITING_PAYMENT for a pay link / transfer account). Idempotent by
+  /// [CollectionRequest.id] and [idempotencyKey].
+  Future<Collection> createCollection(
+    CollectionRequest request, {
+    required String idempotencyKey,
+  });
+
+  /// Collections of an order (`GET /payments?orderId=`); statuses are live
+  /// server truth.
+  Future<List<Collection>> listCollections(String orderId);
+
+  /// This waiter's collections since [since] (`GET /payments?collectedBy=`).
+  Future<List<Collection>> listMyCollections(
+    String staffId, {
+    required DateTime since,
+  });
+
+  /// This waiter's recent cash handovers (`GET /cash-handovers?waiterId=`).
+  Future<List<CashHandover>> listHandovers(String staffId);
+
+  /// `GET /staff/{id}/collection-policy` (effective, facility/staff).
+  Future<CollectionPolicy> collectionPolicy(
+    String staffId, {
+    String? facilityId,
+  });
+
+  /// `GET /staff/{id}/cash-in-hand`.
+  Future<CashInHand> cashInHand(String staffId);
+
+  /// `POST /cash-handovers` - the waiter declares the cash handed to the
+  /// cashier; the server returns expected amount + variance.
+  Future<CashHandover> createHandover({
+    required String id,
+    required String declaredAmount,
     String? note,
     required String idempotencyKey,
   });

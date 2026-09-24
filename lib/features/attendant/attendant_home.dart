@@ -10,6 +10,7 @@ import '../../core/models/models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/state/attendant_state.dart';
 import '../../core/state/board.dart';
+import '../../core/state/collection_service.dart';
 import '../../core/state/outbox.dart';
 import '../shared/widgets.dart';
 import 'order_pane.dart';
@@ -53,6 +54,15 @@ class AttendantHome extends ConsumerWidget {
                 : const Icon(Icons.refresh),
             onPressed: () => ref.read(boardProvider.notifier).refresh(),
           ),
+          if (app.can('payment.collect') &&
+              (ref.watch(collectionPolicyProvider).value?.cashHoldingAllowed ??
+                  true))
+            IconButton(
+              key: const Key('my-cash'),
+              tooltip: 'My cash',
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              onPressed: () => context.push(Routes.cash),
+            ),
           IconButton(
             key: const Key('lock'),
             tooltip: 'Lock tablet',
@@ -161,12 +171,20 @@ class _AlertStack extends ConsumerWidget {
         for (final a in alerts)
           Material(
             key: Key('alert-${a.id}'),
-            color: a.kind == 'ready' ? R007Colors.green : R007Colors.purple,
+            color: switch (a.kind) {
+              'ready' || 'paid' => R007Colors.green,
+              'rejected' => R007Colors.red,
+              'bill' => R007Colors.blue,
+              _ => R007Colors.purple,
+            },
             child: ListTile(
-              leading: Icon(
-                a.kind == 'ready' ? Icons.notifications_active : Icons.gavel,
-                color: Colors.white,
-              ),
+              leading: Icon(switch (a.kind) {
+                'ready' => Icons.notifications_active,
+                'paid' => Icons.verified,
+                'rejected' => Icons.report_gmailerrorred,
+                'bill' => Icons.receipt_long,
+                _ => Icons.gavel,
+              }, color: Colors.white),
               title: Text(
                 a.title,
                 style: const TextStyle(

@@ -13,6 +13,7 @@ import '../../core/state/board.dart';
 import '../../core/state/order_service.dart';
 import '../../core/state/outbox.dart';
 import '../shared/widgets.dart';
+import 'bill_panel.dart';
 
 /// Orders of the selected table / tab with per-line preparation status and
 /// the actions the signed-in staff is allowed to attempt.
@@ -253,6 +254,8 @@ class OrderCardState extends ConsumerState<OrderCard> {
     final canServe =
         !widget.pending && o.hasReady && (staff?.can('order.serve') ?? true);
     final sent = o.status != OrderStatus.draft && !widget.pending;
+    // A printed bill freezes the order (server: 409 order_billed).
+    final frozen = o.bill.printed;
     return Card(
       key: Key('order-${o.id}'),
       elevation: 1,
@@ -358,7 +361,7 @@ class OrderCardState extends ConsumerState<OrderCard> {
                         textAlign: TextAlign.right,
                       ),
                     ),
-                    if (sent && !l.isVoided && !o.awaitingApproval)
+                    if (sent && !l.isVoided && !o.awaitingApproval && !frozen)
                       PopupMenuButton<String>(
                         key: Key('line-menu-${l.id}'),
                         icon: const Icon(Icons.more_vert),
@@ -377,11 +380,16 @@ class OrderCardState extends ConsumerState<OrderCard> {
                   ],
                 ),
               ),
+            if (sent &&
+                o.isOpen &&
+                !o.awaitingApproval &&
+                !o.pendingConfirmation)
+              BillPanel(order: o),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (sent && o.isOpen && !o.awaitingApproval)
+                if (sent && o.isOpen && !o.awaitingApproval && !frozen)
                   TextButton.icon(
                     key: Key('void-${o.id}'),
                     onPressed: _busy ? null : _void,

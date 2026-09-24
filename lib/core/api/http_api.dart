@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
+import '../models/collection_models.dart';
 import '../models/models.dart';
 import '../realtime/pusher_client.dart';
 import '../util/json.dart';
@@ -758,6 +759,147 @@ class HttpR007Api implements R007Api {
       ),
     ),
   );
+
+  // ------------------------------------------------- waiter collection
+
+  /// Some servers answer with the order, others `{order: {...}}`.
+  Json _unwrap(dynamic data, String key) {
+    final j = _obj(data);
+    return j[key] is Map<String, dynamic> ? j.obj(key) : j;
+  }
+
+  @override
+  Future<Order> printBill(
+    String orderId, {
+    required String idempotencyKey,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/orders/$orderId/bill',
+      body: const <String, dynamic>{},
+      idempotencyKey: idempotencyKey,
+    );
+    final o = Order.fromJson(_unwrap(r.data, 'order'));
+    if (r.etag != null) _etags[o.id] = r.etag!;
+    return o;
+  }
+
+  @override
+  Future<Collection> createCollection(
+    CollectionRequest request, {
+    required String idempotencyKey,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/orders/${request.orderId}/collections',
+      body: request.toApi(),
+      idempotencyKey: idempotencyKey,
+    );
+    final j = _obj(r.data);
+    final c = Collection.fromPayment(
+      j.obj('payment'),
+      payLink: j['payLink'] is Map<String, dynamic> ? j.obj('payLink') : null,
+      transferAccount: j['transferAccount'] is Map<String, dynamic>
+          ? j.obj('transferAccount')
+          : null,
+      orderId: request.orderId,
+    );
+    return c;
+  }
+
+  Collection _collection(Json p, {String? orderId}) =>
+      Collection.fromPayment(p, orderId: orderId);
+
+  @override
+  Future<List<Collection>> listCollections(String orderId) async {
+    final r = await _send(
+      'GET',
+      '/payments',
+      query: {'orderId': orderId, 'limit': 50},
+    );
+    return [
+      for (final p in _items(r))
+        if (p['collection'] is Map<String, dynamic>)
+          _collection(p, orderId: orderId),
+    ];
+  }
+
+  @override
+  Future<List<Collection>> listMyCollections(
+    String staffId, {
+    required DateTime since,
+  }) async {
+    final r = await _send(
+      'GET',
+      '/payments',
+      query: {
+        'collectedBy': staffId,
+        'filter[from]': since.toUtc().toIso8601String(),
+        'limit': 100,
+      },
+    );
+    return [
+      for (final p in _items(r))
+        if (p['collection'] is Map<String, dynamic>) _collection(p),
+    ];
+  }
+
+  @override
+  Future<List<CashHandover>> listHandovers(String staffId) async {
+    final r = await _send(
+      'GET',
+      '/cash-handovers',
+      query: {'waiterId': staffId, 'limit': 10},
+    );
+    return _items(r).map(CashHandover.fromJson).toList();
+  }
+
+  @override
+  Future<CollectionPolicy> collectionPolicy(
+    String staffId, {
+    String? facilityId,
+  }) async {
+    try {
+      return CollectionPolicy.fromJson(
+        _obj(
+          await _send(
+            'GET',
+            '/staff/$staffId/collection-policy',
+            query: {'facilityId': ?facilityId},
+          ),
+        ),
+      );
+    } on ApiProblem catch (e) {
+      // Older node without the endpoint: the server still enforces policy.
+      if (e.status == 404) return CollectionPolicy.permissive;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<CashInHand> cashInHand(String staffId) async => CashInHand.fromJson(
+    _obj(await _send('GET', '/staff/$staffId/cash-in-hand')),
+  );
+
+  @override
+  Future<CashHandover> createHandover({
+    required String id,
+    required String declaredAmount,
+    String? note,
+    required String idempotencyKey,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/cash-handovers',
+      body: {
+        'id': id,
+        'declaredAmount': declaredAmount,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return CashHandover.fromJson(_obj(r.data));
+  }
 
   // -------------------------------------------------------------- realtime
 
