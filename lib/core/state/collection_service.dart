@@ -92,6 +92,16 @@ class CollectionService {
     }
   }
 
+  /// Polling fallback for a pay link / transfer: ask the server to verify it
+  /// with the provider. Never throws (it is only a nudge).
+  Future<void> verifyProvider(String reference) async {
+    try {
+      await _api.verifyProviderPayment(reference);
+    } on Object {
+      // best effort
+    }
+  }
+
   Future<List<Collection>> collections(String orderId) =>
       _guard(() => _api.listCollections(orderId));
 
@@ -139,6 +149,9 @@ final collectionPolicyProvider = FutureProvider<CollectionPolicy>((ref) async {
   final facilityId = ref.watch(
     appControllerProvider.select((s) => s.facilityId),
   );
+  // Re-read about once a minute (10 s board polls) so a change made by IT
+  // (facility rule or per-staff override) reaches a tablet mid-shift.
+  ref.watch(boardProvider.select((b) => b.revision ~/ 6));
   if (staffId == null) return CollectionPolicy.permissive;
   final kv = ref.read(kvStoreProvider);
   final key = 'r007.collection-policy.$staffId.$facilityId';
@@ -164,9 +177,16 @@ final collectionPolicyProvider = FutureProvider<CollectionPolicy>((ref) async {
 final orderCollectionsProvider = FutureProvider.autoDispose
     .family<List<Collection>, String>((ref, orderId) async {
       ref.watch(boardProvider.select((b) => b.revision));
-      final list = await ref
-          .read(collectionServiceProvider)
-          .collections(orderId);
+      final svc = ref.read(collectionServiceProvider);
+      final list = await svc.collections(orderId);
+      // Pay links / provider transfers still waiting: nudge the server to
+      // verify them with the provider (no webhook reaches a local node); the
+      // result shows on the next refresh.
+      for (final c in list) {
+        if (c.isWaiting && c.providerReference != null) {
+          unawaited(svc.verifyProvider(c.providerReference!));
+        }
+      }
       return list..sort(
         (a, b) => (b.collectedAt ?? DateTime(0)).compareTo(
           a.collectedAt ?? DateTime(0),

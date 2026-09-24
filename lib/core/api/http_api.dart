@@ -811,6 +811,14 @@ class HttpR007Api implements R007Api {
       Collection.fromPayment(p, orderId: orderId);
 
   @override
+  Future<void> verifyProviderPayment(String reference) async {
+    await _send(
+      'GET',
+      '/payments/paystack/verify/${Uri.encodeComponent(reference)}',
+    );
+  }
+
+  @override
   Future<List<Collection>> listCollections(String orderId) async {
     final r = await _send(
       'GET',

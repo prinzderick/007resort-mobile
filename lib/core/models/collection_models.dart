@@ -168,6 +168,7 @@ class Collection {
     this.transferAccountName,
     this.expiresAt,
     this.orderNumber,
+    this.providerReference,
   });
 
   /// Wire `Payment` (with its `collection` block) -> Collection.
@@ -210,6 +211,10 @@ class Collection {
       collectedAt: p.date('createdAt') ?? col.date('clientCreatedAt'),
       collectedByName: null,
       payLinkUrl: link.strOrNull('authorizationUrl'),
+      providerReference:
+          link.strOrNull('reference') ??
+          p.strOrNull('providerReference') ??
+          p.strOrNull('reference'),
       transferBank: xfer.strOrNull('bankName'),
       transferAccountNumber: xfer.strOrNull('accountNumber'),
       transferAccountName: xfer.strOrNull('accountName'),
@@ -240,6 +245,7 @@ class Collection {
     transferAccountNumber: transferAccountNumber ?? live.transferAccountNumber,
     transferAccountName: transferAccountName ?? live.transferAccountName,
     expiresAt: expiresAt ?? live.expiresAt,
+    providerReference: providerReference ?? live.providerReference,
   );
 
   final String id;
@@ -263,6 +269,10 @@ class Collection {
   final String? transferAccountNumber;
   final String? transferAccountName;
   final DateTime? expiresAt;
+
+  /// Provider (Paystack) reference of a pay link / transfer account; used to
+  /// ask the server to verify it when no webhook can reach the local node.
+  final String? providerReference;
 
   bool get isConfirmed => status == CollectionStatus.confirmed;
   bool get isRejected => status == CollectionStatus.rejected;

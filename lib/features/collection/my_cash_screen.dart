@@ -30,6 +30,20 @@ class MyCashScreenState extends ConsumerState<MyCashScreen> {
   bool _busy = false;
   String? _error;
 
+  // Last loaded lists: a reload (realtime hint, poll, hand-over) must not
+  // blank the screen while the new copy is on its way.
+  List<Collection> _todayList = const [];
+  List<CashHandover> _handovers = const [];
+  CashInHand? _last;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) ref.invalidate(collectionPolicyProvider);
+    });
+  }
+
   @override
   void dispose() {
     _declared.dispose();
@@ -88,6 +102,11 @@ class MyCashScreenState extends ConsumerState<MyCashScreen> {
         ref.watch(collectionPolicyProvider).value ??
         CollectionPolicy.permissive;
     final data = ref.watch(cashInHandProvider);
+    final td = ref.watch(myCollectionsTodayProvider);
+    if (td.hasValue) _todayList = td.requireValue;
+    final ho = ref.watch(myHandoversProvider);
+    if (ho.hasValue) _handovers = ho.requireValue;
+    if (data.hasValue) _last = data.requireValue;
     return Scaffold(
       appBar: AppBar(
         title: const Text('My cash'),
@@ -104,6 +123,8 @@ class MyCashScreenState extends ConsumerState<MyCashScreen> {
               Icons.payments_outlined,
               'Cash goes to the cashier.\nYou do not hold cash.',
             )
+          : (_last != null)
+          ? _content(context, _last!, policy)
           : data.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Padding(
@@ -199,10 +220,7 @@ class MyCashScreenState extends ConsumerState<MyCashScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                for (final h
-                    in ref.watch(myHandoversProvider).value ??
-                        const <CashHandover>[])
-                  _resultCard(h),
+                for (final h in _handovers) _resultCard(h),
                 const SizedBox(height: 8),
                 Text(
                   'Hand over to the cashier',
@@ -268,7 +286,7 @@ class MyCashScreenState extends ConsumerState<MyCashScreen> {
   }
 
   List<Widget> _today(BuildContext context) {
-    final today = ref.watch(myCollectionsTodayProvider).value ?? const [];
+    final today = _todayList;
     int n(String st) => today.where((c) => c.status == st).length;
     return [
       Text('Collections today', style: Theme.of(context).textTheme.titleLarge),

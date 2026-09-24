@@ -386,6 +386,11 @@ abstract class R007Api {
     required String idempotencyKey,
   });
 
+  /// `GET /payments/paystack/verify/{reference}`: asks the server to check
+  /// a pay link / transfer with the provider now (the polling fallback, for a
+  /// local node that cannot receive the provider webhook). Best effort.
+  Future<void> verifyProviderPayment(String reference);
+
   /// Collections of an order (`GET /payments?orderId=`); statuses are live
   /// server truth.
   Future<List<Collection>> listCollections(String orderId);

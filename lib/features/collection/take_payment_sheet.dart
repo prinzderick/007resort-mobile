@@ -77,9 +77,22 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
   @override
   void initState() {
     super.initState();
+    // Always work from the freshest effective policy when taking money.
+    Future.microtask(() {
+      if (mounted) ref.invalidate(collectionPolicyProvider);
+    });
     if (ref.read(timersEnabledProvider)) {
-      _poll = Timer.periodic(const Duration(seconds: 3), (_) {
-        if (_active != null && !_active!.isConfirmed) {
+      _poll = Timer.periodic(const Duration(seconds: 3), (_) async {
+        final a = _active;
+        if (a != null && !a.isConfirmed) {
+          // A local node cannot receive the provider webhook: ask it to
+          // verify with the provider, then reload the truth.
+          if (a.providerReference != null && a.isWaiting) {
+            await ref
+                .read(collectionServiceProvider)
+                .verifyProvider(a.providerReference!);
+          }
+          if (!mounted) return;
           ref.invalidate(orderCollectionsProvider(widget.orderId));
           unawaited(ref.read(boardProvider.notifier).refresh(silent: true));
         }
@@ -326,12 +339,14 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
       if (live != null) active = active.withLiveState(live);
     }
 
+    // Cash stays visible (disabled, with the reason) when this waiter may not
+    // hold cash, even if the server left it out of `allowedTenders`.
     final offered = [
       for (final m in TenderMethod.all)
-        if (policy.allowedTenders.contains(m)) m,
+        if (policy.allowedTenders.contains(m) || m == TenderMethod.cash) m,
     ];
     String? disabledReason(String m) {
-      if (m == TenderMethod.cash && !policy.cashHoldingAllowed) {
+      if (m == TenderMethod.cash && !policy.allows(TenderMethod.cash)) {
         return 'Cash goes to the cashier';
       }
       if (TenderMethod.needsNetwork(m) && !online) return 'Needs a connection';

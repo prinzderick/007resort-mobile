@@ -1844,6 +1844,9 @@ class MockR007Api implements R007Api {
   }
 
   @override
+  Future<void> verifyProviderPayment(String reference) async {}
+
+  @override
   Future<List<Collection>> listCollections(String orderId) => _call(() {
     _require('payment.collect');
     return _getOrder(orderId).collections.map(_collModel).toList();
