@@ -12,13 +12,20 @@ import '../storage/kv_store.dart';
 import '../util/json.dart';
 
 /// Types of operation that may be queued while the server is unreachable.
-/// Ticket validation, payments, approvals, sports release/return are NEVER
-/// queued (they need an authoritative live answer - spec/architecture 13 §4).
+/// Ticket validation, payment SETTLEMENT, approvals, sports release/return
+/// are NEVER queued (they need an authoritative live answer - spec/
+/// architecture 13 §4). The one payment exception is a waiter's manual
+/// cash / card-machine collection RECORD: it is only ever PENDING (a cashier
+/// confirms it later) and carries a client UUIDv7 id, so replay is safe.
 abstract final class OpType {
   static const openTab = 'tab.open';
   static const openTable = 'table.open';
   static const createOrder = 'order.create';
   static const sendOrder = 'order.send';
+
+  /// Manual cash / card-machine collection record (CollectionRequest).
+  /// Pay-link / transfer initiation is NEVER queued (needs the provider).
+  static const collect = 'collection.record';
 }
 
 class QueuedOp {

@@ -68,3 +68,28 @@ Codes: `scripts/local-node.sh device-code RECEPTION | RESTAURANT | SPORTS_ARENA 
 8. Sign out; enrol SPORTS_STORE as Sports Store; `storekeeper1`; scan the rental token -> release racket -> record return.
 9. Offline: turn Wi-Fi off, take an order (PENDING CONFIRMATION), turn Wi-Fi on: it is sent automatically, once.
 10. Optional resilience: `scripts/local-node.sh restart` while the app is open: banner, then automatic recovery.
+
+## Addendum: waiter payment collection (2026-09-24)
+
+Run: emulator `r007_tablet` (debug APK, no `R007_MOCK`) against the API at commit `4e14897`
+(`feature/api-waiter-collection`), own DB `r007_mobcollect` on :8095 / Reverb :8096, Redis DB 13/14, dev Paystack
+stand-in on :8093. Staff `wait1` (device enrolled with a one-time code), cashier `cashier2`, IT `owner1`.
+Screenshots `docs/screenshots/r01_*` ... `r11_*`.
+
+| Flow | Result |
+|------|--------|
+| Order T1 -> **Print bill** -> `billState BILL_PRINTED`, `collectable` shown (r01) | pass |
+| Cash tender with cash holding OFF (default): tender hidden/disabled, no My cash (r02) | pass |
+| Collect before SERVED: server says *This facility takes payment after service* (`order_state_invalid`) shown verbatim | pass |
+| Serve via KDS, **card machine** collection -> `PENDING_CONFIRMATION`, remaining recomputed by the server (r03) | pass |
+| **Pay link** -> real `authorizationUrl` QR + *Waiting for payment...* (r04); customer pays at the dev Paystack page; the poll's `verify` nudge flips it to *Confirmed* and the realtime `payment.confirmed` alert appears (r05) | pass |
+| Cashier **rejects** the card slip -> realtime `payment.rejected`, red alert with the reason, reason on the collection tile, remaining back to 5,000 (r06/r06b) | pass |
+| IT enables cash for the waiter (`ALLOW`, limit 6,000): Cash + **My cash** appear (limit 6,000, warning at 5,000 = 83%) (r07/r08) | pass |
+| **Hand over** 5,000 -> `PENDING_RECEIPT`; cashier counts 4,900 -> *Received - you were SHORT by 100.00* (r10) | pass |
+| Cashier opens a session, **confirms** the cash -> `payment.confirmed`, order settles and leaves the board (r11) | pass |
+| Integration test `test/integration/real_collection_test.dart` (policy, cash-in-hand, bill, collect, replay by client id, list, handovers) | pass |
+
+Bugs found here and fixed: the *Cash* tender vanished when the server omitted it from `allowedTenders` (now shown
+disabled with the reason); the pay-link poll needs the provider `verify` call on a node that cannot receive the
+webhook; My cash blanked while reloading; a queued collection made the whole ORDER look "pending confirmation";
+the amount field kept a stale remaining after a collection; queued cash could be entered twice while offline.

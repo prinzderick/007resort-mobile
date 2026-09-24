@@ -32,7 +32,9 @@ class OutboxState {
   /// Orders created offline and awaiting server confirmation.
   Set<String> get pendingOrderIds => {
     for (final o in pending)
-      if (o.orderId != null) o.orderId!,
+      // A queued collection belongs to an order that already EXISTS on the
+      // server, so it must not make the whole order look unconfirmed.
+      if (o.orderId != null && o.type != OpType.collect) o.orderId!,
   };
 }
 

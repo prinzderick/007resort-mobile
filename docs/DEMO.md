@@ -66,6 +66,27 @@ Reset -> `STO-2026` -> sign in `sports1`. Chip **Court + 2 rackets + water** sho
 Tick *Tennis racket* -> **Release selected**; it can no longer be selected, and forcing a second release shows the
 server's *already released* message. Tick it again -> **Record return**.
 
+### A7. Waiter takes payment at the table (mock)
+Sign in `amaka` / `1234` (attendant tablet, Restaurant), take an order (T1, *Beef Suya* x2 = 7,000) and wait for READY (or not).
+1. The order card says **Bill not printed yet** -> **Print bill** -> blue *Bill printed, awaiting payment* with the server's
+   amount due / confirmed / pending cashier / remaining. (The mock lets the waiter print; in production the cashier usually does.)
+2. **Take payment**: *Cash* - type an amount and the cash received, **Change to give** shows; **Record cash collected**.
+   It is now *Pending cashier confirmation* - the bill is NOT paid. ~12 s later the demo "cashier" confirms it (green
+   *Payment confirmed* alert); when everything is confirmed the order leaves the board.
+3. Split it: *Card machine* for the rest - approval code + last 4 + slip. Approval code **0000** is rejected by the demo
+   cashier after ~12 s: red *Payment rejected by the cashier* alert and the reason on the collection.
+4. *Pay link* (or *Transfer* with the amount only): QR + short link and **Waiting for payment...**; ~12 s later it flips to
+   a green **PAID** (provider confirmation). *Transfer* with a bank reference records a manual pending transfer instead.
+5. Offline: flip **Simulate Wi-Fi drop**; *Transfer* / *Pay link* show *Needs a connection*; a **Cash** record is saved as
+   *Pending sync* (the order itself stays confirmed) and is sent when the Wi-Fi is back. Bill print / hand-over need the network.
+6. **My cash** (wallet icon): cash in hand vs the limit (mock: NGN 10,000; a warning at 80%, a forced *hand over first*
+   prompt when a cash collection would exceed it), **Hand over to cashier**: declared amount -> *waiting for the cashier to count it*
+   -> a few seconds later *Received* (a declared amount ending in **.50** is counted 100.00 short, to show the variance).
+7. Policy: sign in `ngozi` / `9999` on the attendant tablet - she has a *staff override that denies cash holding*: the
+   **Cash** tender is disabled with *Cash goes to the cashier* and there is no My cash icon.
+
+Screenshots: `docs/screenshots/s40_*` ... `s54_*` (mock) and `r01_*` ... `r11_*` (real API).
+
 ---
 
 ## Demo B - real system over Wi-Fi
@@ -85,6 +106,11 @@ plus a Reverb server (ports/keys come from `GET /api/v1/system/info -> realtime`
    and move tickets ACCEPTED -> IN PROGRESS -> READY: the waiter tablet raises the READY alert within a second.
 5. Sports: issue a booking at Reception (POS), show the entitlement QR to the Entrance and Store tablets.
 6. Offline: switch the tablet to airplane mode with Wi-Fi off (or block the server) to show queueing; restore to show replay.
+7. Waiter collection (needs the API with `docs/WAITER_COLLECTION.md`): the waiter tablet must be **checked out**; the facility
+   takes payment after service so the order must be SERVED first. Waiter cash holding is **off by default** (Cash shows
+   *Cash goes to the cashier*): IT enables it per waiter with `PATCH /staff/{id}/collection-policy {"cashHolding":"ALLOW","cashLimit":"6000.00"}`
+   or the facility rule `waiter_cash_holding`. A cashier confirms/rejects with `POST /payments/{id}/confirm|reject`
+   (cash needs an open cash session) and receives a hand-over with `POST /cash-handovers/{id}/receive`; the tablet reacts live.
 
 ### If something does not work
 * *Cannot reach ...* on the address screen: wrong IP/port, tablet on guest Wi-Fi, or server firewall.

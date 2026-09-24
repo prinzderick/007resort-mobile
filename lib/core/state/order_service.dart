@@ -6,6 +6,7 @@ import '../api/r007_api.dart';
 import '../models/models.dart';
 import '../offline/offline_queue.dart';
 import 'app_state.dart';
+import 'collection_service.dart';
 import 'connectivity.dart';
 import 'outbox.dart';
 
@@ -68,6 +69,9 @@ class OrderService {
           op.payload['orderId'] as String,
           idempotencyKey: op.idempotencyKey,
         );
+      case OpType.collect:
+        await _ref.read(collectionServiceProvider).execute(op);
+        return null;
       default:
         throw ApiProblem(
           status: 400,

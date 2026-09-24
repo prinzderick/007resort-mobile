@@ -7,6 +7,7 @@ import '../api/r007_api.dart';
 import '../device/device_mode.dart';
 import '../models/models.dart';
 import '../offline/offline_queue.dart';
+import '../util/money.dart';
 import 'app_state.dart';
 import 'connectivity.dart';
 import 'outbox.dart';
@@ -21,7 +22,7 @@ class AppAlert {
   });
   final String id;
 
-  /// `ready` | `approval` | `info`
+  /// `ready` | `approval` | `bill` | `paid` | `rejected` | `info`
   final String kind;
   final String title;
   final String? body;
@@ -189,6 +190,55 @@ class BoardController extends Notifier<BoardState> {
             orderId: e.data['orderId']?.toString(),
           ),
         );
+      case 'bill.printed':
+        final o = e.data['order'];
+        final ob = o is Map ? o : const <String, dynamic>{};
+        final waiter = ob['createdByStaffId']?.toString();
+        if (waiter == null || waiter == me?.id) {
+          _pushAlert(
+            AppAlert(
+              id: 'bill-${ob['id']}',
+              kind: 'bill',
+              title: 'Bill printed - collect payment',
+              body: '${ob['number'] ?? ''} ${ob['tableLabel'] ?? ''}'.trim(),
+              orderId: ob['id']?.toString(),
+            ),
+          );
+        }
+      case 'payment.confirmed':
+      case 'payment.rejected':
+      case 'payment.expired':
+        final p = e.data['payment'];
+        final pb = p is Map ? p : const <String, dynamic>{};
+        final by = pb['takenByStaffId']?.toString();
+        if (by == null || by == me?.id) {
+          final ok = e.name == 'payment.confirmed';
+          final expired = e.name == 'payment.expired';
+          final orderId = e.data['orderId']?.toString();
+          final number = orderId == null
+              ? null
+              : state.orderById(orderId)?.number;
+          final col = pb['collection'];
+          final reason =
+              e.data['reason'] ?? (col is Map ? col['decisionReason'] : null);
+          _pushAlert(
+            AppAlert(
+              id: '${ok ? 'paid' : (expired ? 'exp' : 'rej')}-${pb['id'] ?? e.eventId}',
+              kind: ok ? 'paid' : 'rejected',
+              title: ok
+                  ? 'Payment confirmed'
+                  : expired
+                  ? 'Collection expired - nobody confirmed it'
+                  : 'Payment rejected by the cashier',
+              body: [
+                number,
+                if (pb['amount'] != null) Money.format(pb['amount'].toString()),
+                if (!ok) reason,
+              ].where((x) => x != null && '$x'.isNotEmpty).join(' - '),
+              orderId: orderId,
+            ),
+          );
+        }
       case 'approval.requested':
         if ((me?.permissions.any((p) => p.endsWith('.approve')) ?? false)) {
           _pushAlert(
@@ -254,6 +304,7 @@ class BoardController extends Notifier<BoardState> {
               : o,
       ];
       _detectReady(orders);
+      _detectBillPrinted(orders);
       // A "ready" alert is stale once the order was served, settled or voided.
       final stillReady = {
         for (final o in orders)
@@ -288,6 +339,29 @@ class BoardController extends Notifier<BoardState> {
       state = state.copyWith(loading: false, error: e.message);
       if (e.isUnauthorized) {
         unawaited(ref.read(appControllerProvider.notifier).logout());
+      }
+    }
+  }
+
+  /// Polling fallback for "bill printed" when realtime is not delivering.
+  void _detectBillPrinted(List<Order> next) {
+    final me = ref.read(appControllerProvider).staff;
+    if (ref.read(appControllerProvider).mode != DeviceMode.attendant) return;
+    final before = {for (final o in state.orders) o.id: o.bill.printed};
+    for (final o in next) {
+      if (o.bill.printed &&
+          before[o.id] == false &&
+          state.loaded &&
+          (o.createdByStaffId == null || o.createdByStaffId == me?.id)) {
+        _pushAlert(
+          AppAlert(
+            id: 'bill-${o.id}',
+            kind: 'bill',
+            title: 'Bill printed - collect payment',
+            body: '${o.number ?? ''} ${o.tableLabel ?? ''}'.trim(),
+            orderId: o.id,
+          ),
+        );
       }
     }
   }

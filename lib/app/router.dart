@@ -14,6 +14,7 @@ import '../features/auth/login_screen.dart';
 import '../features/bootstrap/enrol_screen.dart';
 import '../features/bootstrap/setup_screen.dart';
 import '../features/bootstrap/unresolved_screen.dart';
+import '../features/collection/my_cash_screen.dart';
 import '../features/sports/entrance_screen.dart';
 import '../features/sports/store_screen.dart';
 import '../features/supervisor/supervisor_home.dart';
@@ -27,6 +28,7 @@ abstract final class Routes {
   static const checkout = '/checkout';
   static const attendant = '/attendant';
   static const menu = '/attendant/menu';
+  static const cash = '/attendant/cash';
   static const supervisor = '/supervisor';
   static const entrance = '/sports/entrance';
   static const store = '/sports/store';
@@ -82,7 +84,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.attendant,
         builder: (_, _) => const AttendantHome(),
-        routes: [GoRoute(path: 'menu', builder: (_, _) => const MenuScreen())],
+        routes: [
+          GoRoute(path: 'menu', builder: (_, _) => const MenuScreen()),
+          GoRoute(path: 'cash', builder: (_, _) => const MyCashScreen()),
+        ],
       ),
       GoRoute(
         path: Routes.supervisor,

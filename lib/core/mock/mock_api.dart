@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 
 import '../api/r007_api.dart';
+import '../models/collection_models.dart';
 import '../models/models.dart';
 import '../util/json.dart';
 import '../util/money.dart';
@@ -71,6 +72,53 @@ class _Order {
   final DateTime createdAt = DateTime.now().toUtc();
   final List<_Line> lines = [];
   BigInt get totalMinor => lines.fold(BigInt.zero, (a, l) => a + l.totalMinor);
+  bool billPrinted = false;
+  DateTime? billPrintedAt;
+  String? billPrintedBy;
+  final List<_Coll> collections = [];
+}
+
+class _Coll {
+  _Coll({
+    required this.id,
+    required this.orderId,
+    required this.method,
+    required this.amountMinor,
+    required this.byId,
+    required this.byName,
+    required this.status,
+  }) : collectedAt = DateTime.now().toUtc();
+  final String id;
+  final String orderId;
+  final String method;
+  final BigInt amountMinor;
+  final String byId;
+  final String byName;
+  final DateTime collectedAt;
+  String status;
+  BigInt? tenderedMinor;
+  String? approvalCode;
+  String? last4;
+  String? slip;
+  String? bankRef;
+  String? reason;
+  String? payUrl;
+  String? shortUrl;
+  bool transferAccount = false;
+  bool handedOver = false;
+}
+
+class _Handover {
+  _Handover(this.id, this.staffId, this.declared, this.expected)
+    : createdAt = DateTime.now().toUtc();
+  final String id;
+  final String staffId;
+  final BigInt declared;
+  final BigInt expected;
+  final DateTime createdAt;
+  String status = HandoverStatus.pendingReceipt;
+  BigInt? counted;
+  DateTime? receivedAt;
 }
 
 class _Tab {
@@ -214,6 +262,24 @@ class MockR007Api implements R007Api {
   final Map<String, _Order> _orders = {};
   final Map<String, _Tab> _tabs = {};
   final Map<String, _Appr> _approvals = {};
+  final Map<String, _Handover> _handovers = {};
+
+  /// Effective collection policy per staff id (tests / demo can override).
+  /// Default = the facility policy: cash allowed up to NGN 10,000.00 in hand.
+  /// Demo: Ngozi has a STAFF override that denies cash holding.
+  final Map<String, CollectionPolicy> policies = {
+    mockStaff[2].id: const CollectionPolicy(
+      source: 'staff',
+      cashHoldingAllowed: false,
+    ),
+  };
+  CollectionPolicy _policy(String staffId) =>
+      policies[staffId] ??
+      const CollectionPolicy(
+        cashHoldingAllowed: true,
+        cashLimit: '10000.00',
+        allowedTenders: TenderMethod.all,
+      );
   final Map<String, _Ent> _ents = {};
   final Map<String, Checkout> _checkouts = {};
   final Map<String, DeviceIdentity> _devices = {};
@@ -740,6 +806,7 @@ class MockR007Api implements R007Api {
     number: o.number,
     rowVersion: o.rowVersion,
     pendingApprovalId: o.pendingApprovalId,
+    bill: _billOf(o),
   );
 
   _Order _getOrder(String id) =>
@@ -891,6 +958,7 @@ class MockR007Api implements R007Api {
 
   void _recompute(_Order o) {
     if (o.status == OrderStatus.voided ||
+        o.status == OrderStatus.settled ||
         o.status == OrderStatus.pendingApproval) {
       return;
     }
@@ -1111,6 +1179,7 @@ class MockR007Api implements R007Api {
   }) => _call(
     () => _once(idempotencyKey, () {
       final o = _getOrder(orderId);
+      _requireNotBilled(o);
       // A valid supervisor step-up token authorises inline (contract flow A2 3b).
       if (stepUpToken == null) _require('order.void.execute');
       if (reason.trim().length < 3) {
@@ -1146,6 +1215,7 @@ class MockR007Api implements R007Api {
   }) => _call(
     () => _once(idempotencyKey, () {
       final o = _getOrder(orderId);
+      _requireNotBilled(o);
       if (stepUpToken == null) _require('order.discount.execute');
       if (reason.trim().length < 3) {
         throw const ApiProblem(
@@ -1441,6 +1511,494 @@ class MockR007Api implements R007Api {
       return _entModel(e);
     }),
   );
+
+  // ------------------------------------------------- waiter collection
+
+  /// A printed bill freezes the order (server: 409 `order_billed`).
+  void _requireNotBilled(_Order o) {
+    if (o.billPrinted) {
+      throw const ApiProblem(
+        status: 409,
+        code: 'order_billed',
+        title: 'The bill is printed - this order is locked',
+      );
+    }
+  }
+
+  BigInt _sum(_Order o, bool Function(_Coll) f) =>
+      o.collections.where(f).fold(BigInt.zero, (a, c) => a + c.amountMinor);
+  BigInt _confirmedMinor(_Order o) =>
+      _sum(o, (c) => c.status == CollectionStatus.confirmed);
+  BigInt _pendingMinor(_Order o) =>
+      _sum(o, (c) => c.status == CollectionStatus.pendingConfirmation);
+  BigInt _remainingMinor(_Order o) {
+    final r = o.totalMinor - _confirmedMinor(o) - _pendingMinor(o);
+    return r.isNegative ? BigInt.zero : r;
+  }
+
+  BillInfo _billOf(_Order o) => BillInfo(
+    status: o.billPrinted ? 'PRINTED' : 'OPEN',
+    printedAt: o.billPrintedAt,
+    printedByName: o.billPrintedBy,
+    total: Money.fromMinor(o.totalMinor),
+    confirmed: Money.fromMinor(_confirmedMinor(o)),
+    pending: Money.fromMinor(_pendingMinor(o)),
+    remaining: Money.fromMinor(_remainingMinor(o)),
+  );
+
+  Collection _collModel(_Coll c) {
+    final o = _orders[c.orderId];
+    return Collection(
+      id: c.id,
+      orderId: c.orderId,
+      orderNumber: o?.number,
+      method: c.method,
+      amount: Money.fromMinor(c.amountMinor),
+      status: c.status,
+      tendered: c.tenderedMinor == null
+          ? null
+          : Money.fromMinor(c.tenderedMinor!),
+      changeGiven: c.tenderedMinor == null
+          ? null
+          : Money.fromMinor(c.tenderedMinor! - c.amountMinor),
+      approvalCode: c.approvalCode,
+      cardLast4: c.last4,
+      slipReference: c.slip,
+      bankReference: c.bankRef,
+      rejectionReason: c.reason,
+      collectedAt: c.collectedAt,
+      collectedByName: c.byName,
+      payLinkUrl: c.payUrl,
+      shortLink: c.shortUrl,
+      transferBank: c.transferAccount ? 'Demo Bank (mock)' : null,
+      transferAccountNumber: c.transferAccount
+          ? '90${c.id.replaceAll(RegExp(r'[^0-9]'), '').padRight(8, '7').substring(0, 8)}'
+          : null,
+      transferAccountName: c.transferAccount
+          ? '007 RESORT / ${o?.number}'
+          : null,
+      expiresAt: c.status == CollectionStatus.awaitingPayment
+          ? c.collectedAt.add(const Duration(minutes: 30))
+          : null,
+    );
+  }
+
+  @override
+  Future<Order> printBill(String orderId, {required String idempotencyKey}) =>
+      _call(
+        () => _once(idempotencyKey, () {
+          _require('bill.print');
+          final o = _getOrder(orderId);
+          if (o.status == OrderStatus.draft ||
+              o.status == OrderStatus.voided ||
+              o.status == OrderStatus.settled) {
+            throw const ApiProblem(
+              status: 409,
+              code: 'order_state_invalid',
+              title: 'This order cannot be billed yet',
+            );
+          }
+          if (!o.billPrinted) {
+            o.billPrinted = true;
+            o.billPrintedAt = DateTime.now().toUtc();
+            o.billPrintedBy = _me.name;
+            _bump(o);
+            _events.add(
+              RealtimeEvent('bill.printed', {
+                'facilityId': o.facilityId,
+                'order': {
+                  'id': o.id,
+                  'number': o.number,
+                  'tableLabel': o.tableId == null
+                      ? null
+                      : _tableLabel(o.tableId!),
+                  'createdByStaffId': o.createdById,
+                },
+                'printCount': 1,
+                'reprint': false,
+              }),
+            );
+          }
+          return _orderModel(o);
+        }),
+      );
+
+  @override
+  Future<Collection> createCollection(
+    CollectionRequest request, {
+    required String idempotencyKey,
+  }) => _call(
+    () => _once('coll:${request.id}', () {
+      _require('payment.collect');
+      if (!_policy(_me.id).allowedTenders.contains(request.method)) {
+        throw const ApiProblem(
+          status: 403,
+          code: 'tender_not_allowed',
+          title: 'That payment method is not allowed for you',
+        );
+      }
+      final o = _getOrder(request.orderId);
+      if (!o.billPrinted) {
+        throw const ApiProblem(
+          status: 409,
+          code: 'bill_not_printed',
+          title: 'The bill has not been printed yet',
+          detail: 'Ask the cashier to print the bill first.',
+        );
+      }
+      if (o.status == OrderStatus.settled || o.status == OrderStatus.voided) {
+        throw const ApiProblem(
+          status: 409,
+          code: 'order_state_invalid',
+          title: 'This bill is already closed',
+        );
+      }
+      final amount = Money.toMinor(request.amount);
+      if (amount <= BigInt.zero) {
+        throw const ApiProblem(
+          status: 422,
+          code: 'validation_failed',
+          title: 'Enter an amount greater than zero',
+        );
+      }
+      if (amount > _remainingMinor(o)) {
+        throw ApiProblem(
+          status: 422,
+          code: 'amount_exceeds_remaining',
+          title: 'More than is still due',
+          detail:
+              'Only ${Money.format(Money.fromMinor(_remainingMinor(o)))} is still to be collected.',
+        );
+      }
+      final c = _Coll(
+        id: request.id,
+        orderId: o.id,
+        method: request.method,
+        amountMinor: amount,
+        byId: _me.id,
+        byName: _me.name,
+        status: CollectionStatus.pendingConfirmation,
+      );
+      switch (request.method) {
+        case TenderMethod.cash:
+          final pol = _policy(_me.id);
+          if (!pol.allows(TenderMethod.cash)) {
+            throw const ApiProblem(
+              status: 403,
+              code: 'cash_holding_not_allowed',
+              title: 'Cash goes to the cashier',
+              detail:
+                  'You are not allowed to hold cash. Send the customer to the cashier.',
+            );
+          }
+          if (pol.cashLimit != null &&
+              _inHandMinor() + amount > Money.toMinor(pol.cashLimit)) {
+            throw const ApiProblem(
+              status: 409,
+              code: 'cash_limit_exceeded',
+              title: 'Cash limit reached',
+              detail: 'Hand your cash over to the cashier before taking more.',
+            );
+          }
+          final t = Money.toMinor(request.tendered ?? request.amount);
+          if (t < amount) {
+            throw const ApiProblem(
+              status: 422,
+              code: 'validation_failed',
+              title: 'Cash tendered is less than the amount',
+            );
+          }
+          c.tenderedMinor = t;
+        case TenderMethod.cardTerminal:
+          if ((request.approvalCode ?? '').trim().isEmpty) {
+            throw const ApiProblem(
+              status: 422,
+              code: 'validation_failed',
+              title: 'The card machine approval code is required',
+            );
+          }
+          c.approvalCode = request.approvalCode!.trim();
+          c.last4 = request.cardLast4;
+          c.slip = request.slipReference;
+        case TenderMethod.transfer:
+          if ((request.bankReference ?? '').trim().isNotEmpty) {
+            c.bankRef = request.bankReference!.trim();
+          } else {
+            c.transferAccount = true;
+            c.status = CollectionStatus.awaitingPayment;
+          }
+        case TenderMethod.payLink:
+          c.status = CollectionStatus.awaitingPayment;
+          c.payUrl = 'https://pay.007resort.test/p/${c.id.substring(0, 8)}';
+          c.shortUrl = 'pay.007.ng/${c.id.substring(c.id.length - 6)}';
+        default:
+          throw const ApiProblem(
+            status: 422,
+            code: 'validation_failed',
+            title: 'Unknown payment method',
+          );
+      }
+      o.collections.add(c);
+      _bump(o);
+      _events.add(
+        RealtimeEvent('payment.collected', {
+          'facilityId': o.facilityId,
+          'payment': _paymentJson(c),
+          'orderId': o.id,
+          'orderNumber': o.number,
+          'collectedByStaffId': c.byId,
+          'amount': Money.fromMinor(amount),
+          'tender': c.method,
+        }),
+      );
+      if (autoProgress) {
+        _timers.add(
+          Timer(stepDelay * 3, () {
+            if (c.approvalCode == '0000') {
+              rejectCollection(c.id, 'Slip does not match the card machine');
+            } else {
+              confirmCollection(c.id);
+            }
+          }),
+        );
+      }
+      return _collModel(c);
+    }),
+  );
+
+  /// Wire-shaped `Payment` (what realtime events carry).
+  Json _paymentJson(_Coll c) => {
+    'id': c.id,
+    'status': switch (c.status) {
+      CollectionStatus.confirmed => 'CAPTURED',
+      CollectionStatus.awaitingPayment => 'AUTHORIZING',
+      final x => x,
+    },
+    'amount': Money.fromMinor(c.amountMinor),
+    'takenByStaffId': c.byId,
+    'collection': {'tender': c.method, 'decisionReason': c.reason},
+  };
+
+  _Coll? _findColl(String id) {
+    for (final o in _orders.values) {
+      for (final c in o.collections) {
+        if (c.id == id) return c;
+      }
+    }
+    return null;
+  }
+
+  /// Cashier / provider confirms a collection (timers, tests).
+  void confirmCollection(String collectionId) {
+    final c = _findColl(collectionId);
+    if (c == null ||
+        (c.status != CollectionStatus.pendingConfirmation &&
+            c.status != CollectionStatus.awaitingPayment)) {
+      return;
+    }
+    c.status = CollectionStatus.confirmed;
+    final o = _orders[c.orderId]!;
+    if (_confirmedMinor(o) >= o.totalMinor) {
+      o.status = OrderStatus.settled;
+      final t = o.tableId;
+      if (t != null &&
+          !_orders.values.any((x) => x.tableId == t && x != o && _open(x))) {
+        _occupied.remove(t); // the table is free again once nothing is open
+      }
+    }
+    _bump(o);
+    _events.add(
+      RealtimeEvent('payment.confirmed', {
+        'facilityId': o.facilityId,
+        'payment': _paymentJson(c),
+        'orderId': o.id,
+        'mode':
+            c.method == TenderMethod.payLink ||
+                (c.method == TenderMethod.transfer && c.bankRef == null)
+            ? 'PROVIDER'
+            : 'MANUAL',
+      }),
+    );
+  }
+
+  /// Cashier rejects a collection with a reason (timers, tests).
+  void rejectCollection(String collectionId, String reason) {
+    final c = _findColl(collectionId);
+    if (c == null ||
+        (c.status != CollectionStatus.pendingConfirmation &&
+            c.status != CollectionStatus.awaitingPayment)) {
+      return;
+    }
+    c.status = CollectionStatus.rejected;
+    c.reason = reason;
+    final o = _orders[c.orderId]!;
+    _bump(o);
+    _events.add(
+      RealtimeEvent('payment.rejected', {
+        'facilityId': o.facilityId,
+        'payment': _paymentJson(c),
+        'orderId': o.id,
+        'reason': reason,
+      }),
+    );
+  }
+
+  @override
+  Future<void> verifyProviderPayment(String reference) async {}
+
+  @override
+  Future<List<Collection>> listCollections(String orderId) => _call(() {
+    _require('payment.collect');
+    return _getOrder(orderId).collections.map(_collModel).toList();
+  });
+
+  @override
+  Future<List<Collection>> listMyCollections(
+    String staffId, {
+    required DateTime since,
+  }) => _call(() {
+    _require('payment.collect');
+    return _myColls()
+        .where((c) => !c.collectedAt.isBefore(since.toUtc()))
+        .map(_collModel)
+        .toList();
+  });
+
+  Iterable<_Coll> _myColls() => _orders.values
+      .expand((o) => o.collections)
+      .where((c) => c.byId == _me.id);
+
+  /// Cash still physically with the waiter: every CASH collection (even a
+  /// rejected / expired one) minus what was received in handovers.
+  BigInt _inHandMinor() {
+    final collected = _myColls()
+        .where((c) => c.method == TenderMethod.cash)
+        .fold(BigInt.zero, (a, c) => a + c.amountMinor);
+    final handed = _handovers.values
+        .where((h) => h.staffId == _me.id)
+        .fold(BigInt.zero, (a, h) => a + h.declared);
+    return collected - handed;
+  }
+
+  @override
+  Future<CollectionPolicy> collectionPolicy(
+    String staffId, {
+    String? facilityId,
+  }) => _call(() {
+    _me;
+    return _policy(staffId);
+  });
+
+  @override
+  Future<CashInHand> cashInHand(String staffId) => _call(() {
+    _require('payment.collect');
+    final pol = _policy(_me.id);
+    final pend = _myColls().where(
+      (c) => c.status == CollectionStatus.pendingConfirmation,
+    );
+    final inHand = _inHandMinor();
+    final lim = pol.cashLimit == null ? null : Money.toMinor(pol.cashLimit);
+    return CashInHand(
+      cashInHand: Money.fromMinor(inHand),
+      limit: pol.cashLimit,
+      handoverRequired: lim != null && inHand >= lim,
+      cashHoldingAllowed: pol.cashHoldingAllowed,
+      pendingCollections: pend.length,
+      pendingCollectionsAmount: Money.fromMinor(
+        pend.fold(BigInt.zero, (a, c) => a + c.amountMinor),
+      ),
+      openHandovers: _handovers.values
+          .where(
+            (h) =>
+                h.staffId == _me.id &&
+                h.status == HandoverStatus.pendingReceipt,
+          )
+          .length,
+      unsignedShortfall: '0.00',
+    );
+  });
+
+  CashHandover _handoverModel(_Handover h) {
+    final v = h.counted == null ? null : h.counted! - h.declared;
+    return CashHandover(
+      id: h.id,
+      declaredAmount: Money.fromMinor(h.declared),
+      expectedInHand: Money.fromMinor(h.expected),
+      countedAmount: h.counted == null ? null : Money.fromMinor(h.counted!),
+      variance: v == null ? null : Money.fromMinor(v),
+      varianceKind: v == null
+          ? null
+          : (v == BigInt.zero ? 'EXACT' : (v.isNegative ? 'SHORT' : 'OVER')),
+      status: h.status,
+      createdAt: h.createdAt,
+      receivedAt: h.receivedAt,
+    );
+  }
+
+  @override
+  Future<List<CashHandover>> listHandovers(String staffId) => _call(() {
+    _require('payment.collect');
+    final l = _handovers.values.where((h) => h.staffId == _me.id).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return l.map(_handoverModel).toList();
+  });
+
+  @override
+  Future<CashHandover> createHandover({
+    required String id,
+    required String declaredAmount,
+    String? note,
+    required String idempotencyKey,
+  }) => _call(
+    () => _once('handover:$id', () {
+      _require('payment.collect');
+      final declared = Money.toMinor(declaredAmount);
+      final inHand = _inHandMinor();
+      if (declared.isNegative || declared > inHand) {
+        throw const ApiProblem(
+          status: 422,
+          code: 'amount_mismatch',
+          title: 'More than the cash you hold',
+          detail: 'You declared more than the cash recorded in your hand.',
+        );
+      }
+      final h = _Handover(id, _me.id, declared, inHand);
+      _handovers[id] = h;
+      if (autoProgress) {
+        // Demo cashier: counts it a few seconds later. A declared amount
+        // ending in .50 is counted 100.00 short, to show a variance.
+        _timers.add(
+          Timer(stepDelay * 2, () {
+            receiveHandover(
+              id,
+              declaredAmount.endsWith('.50')
+                  ? declared - BigInt.from(10000)
+                  : declared,
+            );
+          }),
+        );
+      }
+      return _handoverModel(h);
+    }),
+  );
+
+  /// Cashier counts a handover (timers, tests). variance = counted - declared.
+  void receiveHandover(String id, BigInt counted) {
+    final h = _handovers[id];
+    if (h == null || h.status != HandoverStatus.pendingReceipt) return;
+    h.counted = counted;
+    h.receivedAt = DateTime.now().toUtc();
+    final v = counted - h.declared;
+    h.status = v.abs() > BigInt.from(50000)
+        ? HandoverStatus.pendingSignoff
+        : HandoverStatus.received;
+    _events.add(
+      RealtimeEvent('cash-handover.received', {
+        'facilityId': null,
+        'handover': {'id': h.id, 'status': h.status},
+      }),
+    );
+  }
 
   // -------------------------------------------------------------- realtime
 

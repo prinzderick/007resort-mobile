@@ -1,5 +1,6 @@
 import '../device/device_mode.dart';
 import '../util/json.dart';
+import 'collection_models.dart';
 
 /// Wire-format domain models (contract: 007resort-docs api/openapi/v1.yaml).
 /// All money values are decimal STRINGS exactly as sent by the server; the
@@ -479,6 +480,7 @@ class Order {
     this.rowVersion = 0,
     this.pendingApprovalId,
     this.pendingConfirmation = false,
+    this.bill = const BillInfo(),
   });
   factory Order.fromJson(Json j) => Order(
     id: j.str('id'),
@@ -501,6 +503,7 @@ class Order {
     number: j.strOrNull('number'),
     rowVersion: j.intOr('rowVersion'),
     pendingApprovalId: j.strOrNull('pendingApprovalId'),
+    bill: BillInfo.fromOrderJson(j),
   );
 
   Order copyWith({
@@ -529,6 +532,7 @@ class Order {
     rowVersion: rowVersion,
     pendingApprovalId: pendingApprovalId,
     pendingConfirmation: pendingConfirmation ?? this.pendingConfirmation,
+    bill: bill,
   );
 
   final String id;
@@ -554,6 +558,9 @@ class Order {
 
   /// Local-only flag: created while offline, not yet confirmed by the server.
   final bool pendingConfirmation;
+
+  /// Bill / collection state (server-computed).
+  final BillInfo bill;
 
   bool get isOpen =>
       status != OrderStatus.settled && status != OrderStatus.voided;
