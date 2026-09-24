@@ -17,6 +17,7 @@ a per-role build.
 | Mode | Who | What it does |
 |------|-----|--------------|
 | **Attendant** (shared waiter pool, 12) | Waiters | Sign in (staff no. + PIN, password or NFC-card UID), **check out the tablet** to a facility for the shift, live tables + customer tabs, open table/tab, browse the per-facility catalog, cart, **send order** (locks lines), per-item preparation status, **READY notification** (sound + haptic + banner), mark served, add more orders to an open tab, void / discount / comp (approval route), return tablet at end of shift. |
+| | | **Waiter payment collection** (see below): order card shows the bill state, **Take payment** at the table (cash / card machine / transfer / pay link, split across tenders), a clear status per collection, **My cash** and hand-over to the cashier. |
 | **Supervisor** (dedicated, 4) | Outlet supervisors | Live monitor of facility orders, tables & tabs, **approvals queue** (approve / reject with reason, PIN step-up), can void / discount directly when permitted. |
 | **Sports Entrance** (1) | Gate | Camera QR scan -> `redeem` -> ONE full-screen unmistakable result (VALID / ALREADY USED / EXPIRED / WRONG FACILITY / NOT YET VALID / CANCELLED) with haptics + sound, scan history. **Never guesses offline**: shows NO CONNECTION. |
 | **Sports Store** (1) | Store | Scan entitlement QR -> exactly what was paid/rented -> **Release** items / **Record return** (OK / damaged / lost). Duplicate release is blocked by the server and surfaced verbatim. |
@@ -27,6 +28,37 @@ connectivity/outbox banner, idle **auto-lock** (PIN to resume), permissions-driv
 UI (hide/disable what the staff cannot do - the server still enforces), large
 touch targets and tablet split layouts.
 
+### Waiter payment collection (owner rule)
+
+The cashier prints the bill; the waiter takes a portable card machine / cash / transfer link to the table and
+**collects, but can never mark a bill paid**. Everything a waiter collects by hand is **PENDING** until the cashier
+verifies it (or auto-confirmed when the provider - Paystack pay link / per-bill transfer account - confirms).
+Contract: `007resort-api` `docs/WAITER_COLLECTION.md` + OpenAPI (`x-additive`).
+
+* **Order card**: `Bill not printed yet` -> (`bill.print`) **Print bill** -> `Bill printed, awaiting payment` with server
+  figures (amount due / confirmed / pending cashier / remaining). A printed bill freezes the order (void/discount hidden).
+* **Take payment sheet** (`payment.collect`): tender picker (big targets), amount pre-filled with the server's remaining,
+  **Cash** (received + change), **Card machine** (manual bank POS: approval code, last 4, slip/RRN - a future integrated
+  terminal only adds `terminalId` and a *Waiting for machine...* state), **Transfer** (bill's own account, or a customer
+  bank reference = manual record), **Pay link** (QR + link, `Waiting for payment...` -> **PAID**). Statuses per
+  collection: *Pending cashier confirmation* / *Confirmed* / *Rejected* (with the cashier's reason) / *Waiting for
+  payment* / *Pending sync*.
+* **Idempotent + duplicate-tap safe**: one client UUIDv7 `id` + `Idempotency-Key` per on-screen attempt; the button
+  is disabled in flight; ambiguous failures (5xx/timeout) retry the SAME attempt.
+* **Live**: realtime `bill.printed`, `payment.collected/confirmed/rejected`, `cash-handover.received` are hints -> board
+  reload; the 10 s poll is the fallback. For a pay link / transfer the poll also asks the server to
+  `GET /payments/paystack/verify/{ref}` (a local node cannot receive the Paystack webhook).
+* **Cash policy** (`GET /staff/{id}/collection-policy`, facility rule overridden per staff): when cash holding is not
+  allowed the **Cash** tender is shown disabled with *Cash goes to the cashier* and **My cash** is hidden; otherwise
+  My cash shows cash in hand vs the limit (warning near it), `cash_limit_exceeded` forces a *hand over first* prompt,
+  `cash_holding_not_allowed` disables Cash. Re-read on login/checkout, every ~minute, and when a sheet opens.
+* **My cash**: cash in hand, limit, pending, today's collections, **hand over to cashier** (declared amount; the
+  server returns `PENDING_RECEIPT`, then the cashier's count -> *Received / SHORT / OVER* with the variance).
+* **Offline**: only manual **cash / card-machine records** are queued (client id, encrypted queue, marked *Pending
+  sync*, never shown as confirmed; already-saved amounts are not offered again). **Pay link / transfer, bill print
+  and hand-over need the network** and say so.
+* No local money math beyond display (remaining/change preview); the server validates amounts (`over_collection`).
+
 ### Offline resilience (spec / architecture 13)
 
 * Only **order creation** is queued (`open table` -> `create order` -> `send order`), each
@@ -36,7 +68,8 @@ touch targets and tablet split layouts.
   unverifiable state).
 * Orders made offline show **PENDING CONFIRMATION** until the server confirms; server rejections are shown
   (banner -> Review), never silently dropped.
-* **Never queued**: ticket validation/redeem, release/return, void/discount/approvals, login/step-up. These need a
+* Also queued: a waiter's manual **cash / card-machine collection record** (never a settlement).
+* **Never queued**: ticket validation/redeem, release/return, void/discount/approvals, bill print, pay link/transfer, hand-over, login/step-up. These need a
   live, authoritative answer and show a connectivity error instead.
 * Catalog is cached for offline browsing. Realtime is a hint channel only: 10 s polling + reload on reconnect.
 
@@ -136,6 +169,10 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test                       # unit + widget (mock) tests; integration test skips
 flutter build apk --debug
+
+# Waiter-collection integration test (needs the API with docs/WAITER_COLLECTION.md; leaves 1 printed bill behind):
+R007_API_BASE_URL=http://127.0.0.1:8095 R007_DEVICE_ID=<uuid> R007_DEVICE_TOKEN=<token> R007_STAFF_ID=wait1 R007_STAFF_PIN=1234 \
+  flutter test test/integration/real_collection_test.dart
 
 # Real-API integration test (follows api/mvp-flows.md Flow A):
 R007_API_BASE_URL=http://127.0.0.1:8080 R007_REG_CODE=... R007_STAFF_ID=S-0042 R007_STAFF_PIN=4821 \
