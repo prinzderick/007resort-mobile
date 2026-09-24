@@ -3,8 +3,8 @@
 // unless R007_API_BASE_URL is set:
 //
 //   R007_API_BASE_URL=http://127.0.0.1:8095 \
-//   R007_DEVICE_ID=<uuid> R007_DEVICE_TOKEN=r7d_dev_tablet_waiter_01 \
-//   R007_STAFF_ID=wait1 R007_STAFF_PIN=1234 \
+//   R007_DEVICE_ID=<uuid> R007_DEVICE_TOKEN=<device-token> \
+//   R007_STAFF_ID=<staff> R007_STAFF_PIN=<pin> \
 //   flutter test test/integration/real_collection_test.dart
 //
 // (or R007_REG_CODE instead of a device id/token). It leaves ONE order with a

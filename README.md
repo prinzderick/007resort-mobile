@@ -171,7 +171,7 @@ flutter test                       # unit + widget (mock) tests; integration tes
 flutter build apk --debug
 
 # Waiter-collection integration test (needs the API with docs/WAITER_COLLECTION.md; leaves 1 printed bill behind):
-R007_API_BASE_URL=http://127.0.0.1:8095 R007_DEVICE_ID=<uuid> R007_DEVICE_TOKEN=<token> R007_STAFF_ID=wait1 R007_STAFF_PIN=1234 \
+R007_API_BASE_URL=http://127.0.0.1:8095 R007_DEVICE_ID=<uuid> R007_DEVICE_TOKEN=<token> R007_STAFF_ID=<staff> R007_STAFF_PIN=<pin> \
   flutter test test/integration/real_collection_test.dart
 
 # Real-API integration test (follows api/mvp-flows.md Flow A):
