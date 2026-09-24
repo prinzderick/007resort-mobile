@@ -26,9 +26,14 @@ Future<void> showTakePaymentSheet(BuildContext context, String orderId) =>
       isScrollControlled: true,
       useSafeArea: true,
       constraints: const BoxConstraints(maxWidth: 1100),
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.94,
-        child: TakePaymentSheet(orderId: orderId),
+      // Shrink above the on-screen keyboard so the fields being typed in
+      // are never hidden behind it.
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: FractionallySizedBox(
+          heightFactor: 0.94,
+          child: TakePaymentSheet(orderId: orderId),
+        ),
       ),
     );
 
@@ -65,7 +70,9 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
   Collection? _active;
   Order? _lastOrder;
   Timer? _poll;
-  bool _amountSeeded = false;
+  Timer? _noticeTimer;
+  bool _amountEdited = false;
+  String? _seededFor;
 
   @override
   void initState() {
@@ -83,6 +90,7 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
   @override
   void dispose() {
     _poll?.cancel();
+    _noticeTimer?.cancel();
     for (final c in [
       _amount,
       _tendered,
@@ -97,6 +105,18 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
     super.dispose();
   }
 
+  /// Shows a confirmation banner for a few seconds (a later rejection must
+  /// not sit under a stale "recorded" message).
+  void _showNotice(String text) {
+    _notice = text;
+    _noticeTimer?.cancel();
+    if (ref.read(timersEnabledProvider)) {
+      _noticeTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted) setState(() => _notice = null);
+      });
+    }
+  }
+
   void _newAttempt() {
     _attemptId = newId();
     _attemptKey = newId();
@@ -105,11 +125,12 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
   String _plain(String? v) =>
       v == null ? '' : Money.fromMinor(Money.toMinor(v));
 
-  void _seedAmount(Order o) {
-    if (_amountSeeded) return;
-    final r = o.bill.remaining;
-    if (r == null) return;
-    _amountSeeded = true;
+  /// Pre-fills the amount with the SERVER's remaining and keeps it in step
+  /// while the waiter has not typed their own figure (a collection recorded a
+  /// moment ago changes the remaining once the board refreshes).
+  void _seedAmount(String? r) {
+    if (r == null || _amountEdited || r == _seededFor) return;
+    _seededFor = r;
     _amount.text = _plain(r);
   }
 
@@ -183,18 +204,20 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
       if (!mounted) return;
       if (res.queued) {
         _resetForm(order);
-        setState(() {
-          _notice =
-              'Saved on this tablet - pending sync. It will be sent as soon as the connection is back.';
-        });
+        setState(
+          () => _showNotice(
+            'Saved on this tablet - pending sync. It will be sent as soon as the connection is back.',
+          ),
+        );
       } else if (res.collection!.isWaiting) {
         setState(() => _active = res.collection);
       } else {
         _resetForm(order);
-        setState(() {
-          _notice =
-              'Recorded. Waiting for the cashier to confirm - the bill is not paid until then.';
-        });
+        setState(
+          () => _showNotice(
+            'Recorded. Waiting for the cashier to confirm - the bill is not paid until then.',
+          ),
+        );
       }
     } on ApiProblem catch (e) {
       // A 5xx is ambiguous (it may have been applied): keep the same attempt
@@ -265,7 +288,8 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
     for (final c in [_tendered, _approval, _last4, _slip, _bankRef, _email]) {
       c.clear();
     }
-    _amountSeeded = false;
+    _amountEdited = false;
+    _seededFor = null;
     _amount.clear();
   }
 
@@ -292,7 +316,8 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
         'This bill is no longer open',
       );
     }
-    _seedAmount(order);
+    final remaining = order.bill.remainingAfter(sync);
+    _seedAmount(remaining);
 
     // Live state of the waited-on collection.
     Collection? active = _active;
@@ -322,7 +347,7 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
         : usable.firstOrNull;
     final bill = order.bill;
     final remainingZero =
-        bill.remaining != null && Money.toMinor(bill.remaining) == BigInt.zero;
+        remaining != null && Money.toMinor(remaining) == BigInt.zero;
 
     return Material(
       child: Padding(
@@ -346,35 +371,38 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
                 ),
               ],
             ),
-            Container(
-              key: const Key('bill-figures'),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AmountFigure('Amount due', bill.total ?? order.total),
-                  AmountFigure(
-                    'Confirmed',
-                    bill.confirmed,
-                    color: R007Colors.green,
-                  ),
-                  AmountFigure(
-                    'Pending cashier',
-                    bill.pending,
-                    color: R007Colors.orange,
-                  ),
-                  AmountFigure('Remaining', bill.remaining, big: true),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
             Expanded(
               child: ListView(
                 children: [
+                  if (live != null)
+                    Container(
+                      key: const Key('bill-figures'),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          AmountFigure('Amount due', bill.total ?? order.total),
+                          AmountFigure(
+                            'Confirmed',
+                            bill.confirmed,
+                            color: R007Colors.green,
+                          ),
+                          AmountFigure(
+                            'Pending cashier',
+                            bill.pending,
+                            color: R007Colors.orange,
+                          ),
+                          AmountFigure('Remaining', remaining, big: true),
+                        ],
+                      ),
+                    ),
+
                   if (active != null)
                     _WaitingView(
                       collection: active,
@@ -416,6 +444,7 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
                             onTap: () => setState(() {
                               _method = m;
                               _error = null;
+                              _notice = null;
                             }),
                           ),
                       ],
@@ -429,7 +458,7 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
                         ),
                       )
                     else
-                      _form(method, order),
+                      _form(method, order, remaining),
                   ],
                   if (sync.isNotEmpty || (server ?? const []).isNotEmpty) ...[
                     const SizedBox(height: 20),
@@ -459,12 +488,17 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
     int? maxLength,
     String? helper,
     TextCapitalization caps = TextCapitalization.none,
+    VoidCallback? onEdited,
   }) => Padding(
     padding: const EdgeInsets.only(top: 12),
     child: TextField(
       key: Key(key),
       controller: c,
-      onChanged: (_) => setState(() => _error = null),
+      onChanged: (_) {
+        onEdited?.call();
+        setState(() => _error = null);
+      },
+      textInputAction: TextInputAction.next,
       style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
       keyboardType: money
           ? const TextInputType.numberWithOptions(decimal: true)
@@ -492,7 +526,7 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
     ),
   );
 
-  Widget _form(String method, Order order) {
+  Widget _form(String method, Order order, String? remaining) {
     final amount = _amount.text.trim();
     final tendered = _tendered.text.trim();
     String? change;
@@ -531,15 +565,20 @@ class TakePaymentSheetState extends ConsumerState<TakePaymentSheet> {
             const SizedBox(width: 12),
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: OutlinedButton(
-                key: const Key('amount-remaining'),
-                onPressed: () => setState(() {
-                  _amount.text = _plain(order.bill.remaining);
-                }),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(140, 64),
+              // Not a keyboard "next" stop: Next goes to the following field.
+              child: ExcludeFocus(
+                child: OutlinedButton(
+                  key: const Key('amount-remaining'),
+                  onPressed: () => setState(() {
+                    _amountEdited = false;
+                    _seededFor = null;
+                    _amount.text = _plain(remaining);
+                  }),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(140, 64),
+                  ),
+                  child: const Text('Full remaining'),
                 ),
-                child: const Text('Full remaining'),
               ),
             ),
           ],
@@ -714,7 +753,7 @@ class _TenderButton extends StatelessWidget {
         onTap: disabled ? null : onTap,
         child: Container(
           width: 236,
-          height: 92,
+          height: 108,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -858,7 +897,7 @@ class _WaitingView extends StatelessWidget {
               child: QrImageView(
                 key: const Key('pay-qr'),
                 data: c.qrData!,
-                size: 260,
+                size: 220,
                 backgroundColor: Colors.white,
               ),
             ),

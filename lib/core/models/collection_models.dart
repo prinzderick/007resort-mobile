@@ -1,4 +1,5 @@
 import '../util/json.dart';
+import '../util/money.dart';
 
 /// Waiter-side payment collection models.
 ///
@@ -127,6 +128,20 @@ class BillInfo {
   final String? remaining;
 
   bool get printed => status == 'PRINTED';
+
+  /// What is still to be collected once the records saved on THIS tablet
+  /// (pending sync, unknown to the server) are counted, so a waiter cannot
+  /// enter the same money twice while offline. Display only: the server
+  /// re-checks everything when the records sync.
+  String? remainingAfter(Iterable<Collection> unsynced) {
+    final r = remaining;
+    if (r == null) return null;
+    var minor = Money.toMinor(r);
+    for (final c in unsynced) {
+      minor -= Money.toMinor(c.amount);
+    }
+    return Money.fromMinor(minor.isNegative ? BigInt.zero : minor);
+  }
 }
 
 /// One tender collected (or being collected) by a waiter.

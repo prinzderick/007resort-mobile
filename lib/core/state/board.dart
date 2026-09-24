@@ -7,6 +7,7 @@ import '../api/r007_api.dart';
 import '../device/device_mode.dart';
 import '../models/models.dart';
 import '../offline/offline_queue.dart';
+import '../util/money.dart';
 import 'app_state.dart';
 import 'connectivity.dart';
 import 'outbox.dart';
@@ -227,7 +228,7 @@ class BoardController extends Notifier<BoardState> {
                   : 'Payment rejected by the cashier',
               body: [
                 number,
-                if (pb['amount'] != null) pb['amount'],
+                if (pb['amount'] != null) Money.format(pb['amount'].toString()),
                 if (!ok) reason,
               ].where((x) => x != null && '$x'.isNotEmpty).join(' - '),
               orderId: orderId,

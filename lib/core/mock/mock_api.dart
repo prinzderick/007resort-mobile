@@ -265,13 +265,19 @@ class MockR007Api implements R007Api {
   final Map<String, _Handover> _handovers = {};
 
   /// Effective collection policy per staff id (tests / demo can override).
-  /// Default: facility policy, cash allowed up to NGN 50,000.00.
-  final Map<String, CollectionPolicy> policies = {};
+  /// Default = the facility policy: cash allowed up to NGN 10,000.00 in hand.
+  /// Demo: Ngozi has a STAFF override that denies cash holding.
+  final Map<String, CollectionPolicy> policies = {
+    mockStaff[2].id: const CollectionPolicy(
+      source: 'staff',
+      cashHoldingAllowed: false,
+    ),
+  };
   CollectionPolicy _policy(String staffId) =>
       policies[staffId] ??
       const CollectionPolicy(
         cashHoldingAllowed: true,
-        cashLimit: '50000.00',
+        cashLimit: '10000.00',
         allowedTenders: TenderMethod.all,
       );
   final Map<String, _Ent> _ents = {};
@@ -1600,11 +1606,16 @@ class MockR007Api implements R007Api {
             _events.add(
               RealtimeEvent('bill.printed', {
                 'facilityId': o.facilityId,
-                'orderId': o.id,
-                'orderNumber': o.number,
-                'tableLabel': o.tableId == null
-                    ? null
-                    : _tableLabel(o.tableId!),
+                'order': {
+                  'id': o.id,
+                  'number': o.number,
+                  'tableLabel': o.tableId == null
+                      ? null
+                      : _tableLabel(o.tableId!),
+                  'createdByStaffId': o.createdById,
+                },
+                'printCount': 1,
+                'reprint': false,
               }),
             );
           }
@@ -1789,6 +1800,11 @@ class MockR007Api implements R007Api {
     final o = _orders[c.orderId]!;
     if (_confirmedMinor(o) >= o.totalMinor) {
       o.status = OrderStatus.settled;
+      final t = o.tableId;
+      if (t != null &&
+          !_orders.values.any((x) => x.tableId == t && x != o && _open(x))) {
+        _occupied.remove(t); // the table is free again once nothing is open
+      }
     }
     _bump(o);
     _events.add(

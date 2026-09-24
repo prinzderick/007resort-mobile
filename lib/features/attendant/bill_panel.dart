@@ -55,8 +55,9 @@ class _BillPanelState extends ConsumerState<BillPanel> {
       for (final c in ref.watch(pendingSyncCollectionsProvider(o.id)))
         if (!serverIds.contains(c.id)) c,
     ];
+    final remaining = bill.remainingAfter(sync);
     final remainingZero =
-        bill.remaining != null && Money.toMinor(bill.remaining) == BigInt.zero;
+        remaining != null && Money.toMinor(remaining) == BigInt.zero;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,7 +149,7 @@ class _BillPanelState extends ConsumerState<BillPanel> {
                       bill.pending,
                       color: R007Colors.orange,
                     ),
-                    AmountFigure('Remaining', bill.remaining),
+                    AmountFigure('Remaining', remaining),
                   ],
                 ),
               ],
