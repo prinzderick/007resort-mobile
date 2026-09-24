@@ -207,11 +207,13 @@ class BoardController extends Notifier<BoardState> {
         }
       case 'payment.confirmed':
       case 'payment.rejected':
+      case 'payment.expired':
         final p = e.data['payment'];
         final pb = p is Map ? p : const <String, dynamic>{};
         final by = pb['takenByStaffId']?.toString();
         if (by == null || by == me?.id) {
           final ok = e.name == 'payment.confirmed';
+          final expired = e.name == 'payment.expired';
           final orderId = e.data['orderId']?.toString();
           final number = orderId == null
               ? null
@@ -221,10 +223,12 @@ class BoardController extends Notifier<BoardState> {
               e.data['reason'] ?? (col is Map ? col['decisionReason'] : null);
           _pushAlert(
             AppAlert(
-              id: '${ok ? 'paid' : 'rej'}-${pb['id'] ?? e.eventId}',
+              id: '${ok ? 'paid' : (expired ? 'exp' : 'rej')}-${pb['id'] ?? e.eventId}',
               kind: ok ? 'paid' : 'rejected',
               title: ok
                   ? 'Payment confirmed'
+                  : expired
+                  ? 'Collection expired - nobody confirmed it'
                   : 'Payment rejected by the cashier',
               body: [
                 number,
