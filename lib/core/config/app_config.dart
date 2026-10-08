@@ -34,6 +34,8 @@ class RealtimeConfig {
 /// | R007_API_BASE_URL   | (empty)                | Preset server URL; else entered in-app |
 /// | R007_ENV            | dev                    | dev / staging / production        |
 /// | R007_IDLE_LOCK_SECS | 300                    | Auto-lock after inactivity        |
+/// | R007_ONLINE_URL / R007_LOCAL_URL | (empty)   | Quick picks in the hidden Connection dialog |
+/// | R007_CONNECTION_PIN | (empty)                | Optional PIN for that dialog      |
 ///
 /// Never put secrets in dart-defines: they are embedded in the APK.
 class AppConfig {
@@ -42,6 +44,9 @@ class AppConfig {
     required this.presetApiBaseUrl,
     required this.environment,
     this.idleLockSeconds = 300,
+    this.connectionPin = '',
+    this.onlineUrl = '',
+    this.localUrl = '',
   });
 
   factory AppConfig.fromEnvironment() => const AppConfig(
@@ -52,12 +57,23 @@ class AppConfig {
       'R007_IDLE_LOCK_SECS',
       defaultValue: 300,
     ),
+    connectionPin: String.fromEnvironment('R007_CONNECTION_PIN'),
+    onlineUrl: String.fromEnvironment('R007_ONLINE_URL'),
+    localUrl: String.fromEnvironment('R007_LOCAL_URL'),
   );
 
   final bool useMock;
   final String presetApiBaseUrl;
   final String environment;
   final int idleLockSeconds;
+
+  /// Optional PIN asked by the hidden Connection dialog (empty = none). Not a
+  /// security boundary (it ships in the APK) - it only stops accidental switches.
+  final String connectionPin;
+
+  /// Quick-pick servers shown in the hidden Connection dialog.
+  final String onlineUrl;
+  final String localUrl;
 
   bool get isProduction => environment == 'production';
 

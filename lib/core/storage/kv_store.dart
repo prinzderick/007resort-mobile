@@ -38,4 +38,5 @@ abstract final class Keys {
   static const checkout = 'r007.checkout';
   static const queueKey = 'r007.queueKey';
   static const hardwareId = 'r007.hardwareId';
+  static const profiles = 'r007.profiles';
 }
