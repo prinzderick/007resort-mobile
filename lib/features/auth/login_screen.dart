@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/app_state.dart';
+import '../bootstrap/connection_dialog.dart';
 import '../shared/widgets.dart';
 
 /// Staff sign-in: staff number/username + PIN (or password), or an NFC card
@@ -77,10 +78,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: scheme.onPrimaryContainer,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    '007 Resort & Spa',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
+                  HiddenConnectionTap(
+                    child: Text(
+                      '007 Resort & Spa',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),

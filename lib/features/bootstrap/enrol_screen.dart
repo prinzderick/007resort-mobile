@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/app_state.dart';
 import '../shared/widgets.dart';
+import 'connection_dialog.dart';
 
 /// One-time device enrolment with the registration code IT issued in the
 /// admin UI. The returned device credential is kept in secure storage and sent
@@ -54,9 +55,11 @@ class _EnrolScreenState extends ConsumerState<EnrolScreen> {
             children: [
               const Icon(Icons.tablet_android, size: 64),
               const SizedBox(height: 16),
-              Text(
-                'Enrol this tablet',
-                style: Theme.of(context).textTheme.headlineMedium,
+              HiddenConnectionTap(
+                child: Text(
+                  'Enrol this tablet',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
               ),
               const SizedBox(height: 8),
               const Text(

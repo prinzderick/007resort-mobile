@@ -12,6 +12,7 @@ import '../mock/mock_api.dart';
 import '../models/models.dart';
 import '../storage/kv_store.dart';
 import '../util/json.dart';
+import 'outbox.dart';
 
 const _uuid = Uuid();
 
@@ -201,6 +202,82 @@ class AppController extends Notifier<AppState> {
     await _kv.write(Keys.serverUrl, clean);
     ref.read(serverUrlProvider.notifier).state = clean;
     state = state.copyWith(serverUrl: clean);
+  }
+
+  // ------------------------------------------------- server profiles (switcher)
+
+  static const _profileParts = ['device', 'checkout', 'session'];
+
+  String _globalKey(String part) => switch (part) {
+    'device' => Keys.device,
+    'checkout' => Keys.checkout,
+    _ => 'r007.session',
+  };
+
+  String _profileKey(String url, String part) =>
+      'r007.p.${base64Url.encode(utf8.encode(url))}.$part';
+
+  /// Servers this tablet has been pointed at (most recent first), plus the current one.
+  Future<List<String>> knownServers() async {
+    final out = <String>[];
+    final raw = await _kv.read(Keys.profiles);
+    if (raw != null) {
+      try {
+        out.addAll((jsonDecode(raw) as List).cast<String>());
+      } on Object {
+        // ignore a corrupt list: it is rebuilt on the next switch
+      }
+    }
+    final cur = state.serverUrl;
+    if (cur != null) {
+      out
+        ..remove(cur)
+        ..insert(0, cur);
+    }
+    return out;
+  }
+
+  /// Points the tablet at another server (e.g. Local <-> Online) WITHOUT losing
+  /// the enrolment/session it has on the one it leaves: each server keeps its own
+  /// device credential, staff session and checkout, restored when you switch back.
+  /// Refused while offline records are waiting, so they can never replay against
+  /// a different server than the one that took them.
+  Future<void> switchServer(String url) async {
+    final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+    final current = state.serverUrl;
+    if (clean.isEmpty || clean == current) return;
+    if (ref.read(outboxProvider).hasPending) {
+      throw StateError(
+        'There are offline records waiting to be sent. Reconnect to the current server and let them upload before switching.',
+      );
+    }
+    if (current != null) {
+      for (final part in _profileParts) {
+        final v = await _kv.read(_globalKey(part));
+        if (v == null) {
+          await _kv.delete(_profileKey(current, part));
+        } else {
+          await _kv.write(_profileKey(current, part), v);
+        }
+      }
+    }
+    for (final part in _profileParts) {
+      final v = await _kv.read(_profileKey(clean, part));
+      if (v == null) {
+        await _kv.delete(_globalKey(part));
+      } else {
+        await _kv.write(_globalKey(part), v);
+      }
+    }
+    final known = await knownServers();
+    known
+      ..remove(clean)
+      ..insert(0, clean);
+    await _kv.write(Keys.profiles, jsonEncode(known));
+    await _kv.write(Keys.serverUrl, clean);
+    final fresh = await loadAppState(_kv, ref.read(appConfigProvider));
+    state = fresh;
+    ref.read(serverUrlProvider.notifier).state = clean;
   }
 
   Future<void> forgetServer() async {

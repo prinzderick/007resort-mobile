@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/state/app_state.dart';
+import '../bootstrap/connection_dialog.dart';
 import '../shared/widgets.dart';
 
 /// Shown after idle timeout / app restart: the SAME staff member must
@@ -57,9 +58,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               children: [
                 const Icon(Icons.lock_outline, size: 64),
                 const SizedBox(height: 12),
-                Text(
-                  'Tablet locked',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                HiddenConnectionTap(
+                  child: Text(
+                    'Tablet locked',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
                 ),
                 Text('${staff?.name ?? ''} - enter your PIN to continue'),
                 const SizedBox(height: 16),
