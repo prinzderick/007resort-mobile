@@ -155,7 +155,7 @@ void main() {
           'transferAccount': {
             'bankName': 'Wema',
             'accountNumber': '0123456789',
-            'accountName': '007 RESORT',
+            'accountName': 'SERI RESORT',
           },
         }),
       );

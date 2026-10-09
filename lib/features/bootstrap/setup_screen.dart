@@ -5,7 +5,7 @@ import '../../core/api/r007_api.dart';
 import '../../core/state/app_state.dart';
 import '../shared/widgets.dart';
 
-/// First launch: where is the 007 Resort server on the property network?
+/// First launch: where is the SERI Resort server on the property network?
 /// (e.g. `http://192.168.1.10:8080` - the Local node). Verified against
 /// `GET /api/v1/system/info` before being saved.
 class SetupScreen extends ConsumerStatefulWidget {
