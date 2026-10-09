@@ -1575,7 +1575,7 @@ class MockR007Api implements R007Api {
           ? '90${c.id.replaceAll(RegExp(r'[^0-9]'), '').padRight(8, '7').substring(0, 8)}'
           : null,
       transferAccountName: c.transferAccount
-          ? '007 RESORT / ${o?.number}'
+          ? 'SERI RESORT / ${o?.number}'
           : null,
       expiresAt: c.status == CollectionStatus.awaitingPayment
           ? c.collectedAt.add(const Duration(minutes: 30))

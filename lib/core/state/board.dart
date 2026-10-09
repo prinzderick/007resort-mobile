@@ -283,17 +283,24 @@ class BoardController extends Notifier<BoardState> {
       });
       final withTables =
           mode == DeviceMode.attendant || mode == DeviceMode.supervisor;
-      final results = await Future.wait<Object>([
-        api.listOrders(facilityId),
-        if (withTables)
-          soft(api.listTables(facilityId))
-        else
-          Future.value(<TableInfo>[]),
-        if (withTables)
-          soft(api.listTabs(facilityId))
-        else
-          Future.value(<TabInfo>[]),
-      ]);
+      final results =
+          await Future.wait<Object>([
+            api.listOrders(facilityId),
+            if (withTables)
+              soft(api.listTables(facilityId))
+            else
+              Future.value(<TableInfo>[]),
+            if (withTables)
+              soft(api.listTabs(facilityId))
+            else
+              Future.value(<TabInfo>[]),
+          ]).timeout(
+            // A request that stalls on a weak link must not leave the spinner on forever.
+            const Duration(seconds: 40),
+            onTimeout: () => throw const ApiOfflineException(
+              'The server took too long to answer',
+            ),
+          );
       if (_disposed) return;
       final tables = results[1] as List<TableInfo>;
       final labels = {for (final t in tables) t.id: t.name};

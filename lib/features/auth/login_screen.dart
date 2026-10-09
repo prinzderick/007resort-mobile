@@ -80,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
                   HiddenConnectionTap(
                     child: Text(
-                      '007 Resort & Spa',
+                      'SERI Resort',
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         color: scheme.onPrimaryContainer,
                       ),
