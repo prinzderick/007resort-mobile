@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/state/approvals.dart';
 import '../../core/state/board.dart';
+import '../../core/state/waiter_flow_state.dart';
 import '../attendant/order_pane.dart';
 import '../shared/widgets.dart';
 
@@ -48,6 +52,13 @@ class SupervisorHome extends ConsumerWidget {
                 ref.read(approvalsProvider.notifier).refresh();
               },
             ),
+            if (ref.watch(waiterOnlyProvider) && app.can('waiterflow.manage'))
+              IconButton(
+                key: const Key('open-tabs'),
+                tooltip: 'Open tabs and payment',
+                icon: const Icon(Icons.payments_outlined),
+                onPressed: () => context.push(Routes.supervisorTabs),
+              ),
             IconButton(
               tooltip: 'Lock tablet',
               icon: const Icon(Icons.lock_outline),

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../api/r007_api.dart';
 import '../models/collection_models.dart';
 import '../models/models.dart';
+import '../models/waiter_flow.dart';
 import '../util/json.dart';
 import '../util/money.dart';
 import 'mock_seed.dart';
@@ -2001,6 +2002,83 @@ class MockR007Api implements R007Api {
   }
 
   // -------------------------------------------------------------- realtime
+
+  // ---- waiter-only flow: the demo backend does not model it (the real API does) ----
+
+  static const _noWaiterFlow = ApiProblem(
+    status: 409,
+    code: 'flow_not_enabled',
+    title: 'Not available in demo mode',
+    detail: 'The waiter-only service flow needs the real server.',
+  );
+
+  @override
+  Future<OpenItems> waiterOpenItems(
+    String facilityId, {
+    String? staffId,
+  }) async => const OpenItems();
+
+  @override
+  Future<WaiterPayResult> waiterSettle({
+    required String facilityId,
+    required List<String> orderIds,
+    required List<PayTender> tenders,
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<List<Colleague>> waiterColleagues(String facilityId) async => const [];
+
+  @override
+  Future<List<TabHandover>> listTabHandovers(
+    String facilityId, {
+    String direction = 'all',
+    String status = 'PENDING',
+  }) async => const [];
+
+  @override
+  Future<TabHandover> requestTabHandover({
+    required String facilityId,
+    required String toStaffId,
+    List<String>? orderIds,
+    String? note,
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<TabHandover> acceptTabHandover(
+    String id, {
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<TabHandover> rejectTabHandover(
+    String id, {
+    String? reason,
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<TabHandover> cancelTabHandover(
+    String id, {
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<void> reassignTabs({
+    required String facilityId,
+    required String toStaffId,
+    required List<String> orderIds,
+    required String reason,
+    required String idempotencyKey,
+  }) async => throw _noWaiterFlow;
+
+  @override
+  Future<void> requestReceiptPrint(
+    String receiptId, {
+    int copies = 1,
+    required String idempotencyKey,
+  }) async {}
 
   @override
   Stream<RealtimeEvent> realtime({
