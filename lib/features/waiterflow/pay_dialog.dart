@@ -162,12 +162,16 @@ class _PayDialogState extends State<_PayDialog> {
                       child: DropdownButtonFormField<String>(
                         key: Key('pay-type-$i'),
                         initialValue: _rows[i].type,
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Paid by'),
                         items: [
                           for (final e in _types.entries)
                             DropdownMenuItem(
                               value: e.key,
-                              child: Text(e.value),
+                              child: Text(
+                                e.value,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                         ],
                         onChanged: (v) =>
