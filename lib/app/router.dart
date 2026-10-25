@@ -18,6 +18,8 @@ import '../features/collection/my_cash_screen.dart';
 import '../features/sports/entrance_screen.dart';
 import '../features/sports/store_screen.dart';
 import '../features/supervisor/supervisor_home.dart';
+import '../features/waiterflow/handovers_screen.dart';
+import '../features/waiterflow/tabs_screen.dart';
 
 abstract final class Routes {
   static const setup = '/setup';
@@ -29,6 +31,9 @@ abstract final class Routes {
   static const attendant = '/attendant';
   static const menu = '/attendant/menu';
   static const cash = '/attendant/cash';
+  static const tabs = '/attendant/tabs';
+  static const handovers = '/attendant/handovers';
+  static const supervisorTabs = '/supervisor/tabs';
   static const supervisor = '/supervisor';
   static const entrance = '/sports/entrance';
   static const store = '/sports/store';
@@ -87,11 +92,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: 'menu', builder: (_, _) => const MenuScreen()),
           GoRoute(path: 'cash', builder: (_, _) => const MyCashScreen()),
+          GoRoute(path: 'tabs', builder: (_, _) => const TabsScreen()),
+          GoRoute(
+            path: 'handovers',
+            builder: (_, _) => const HandoversScreen(),
+          ),
         ],
       ),
       GoRoute(
         path: Routes.supervisor,
         builder: (_, _) => const SupervisorHome(),
+        routes: [GoRoute(path: 'tabs', builder: (_, _) => const TabsScreen())],
       ),
       GoRoute(path: Routes.entrance, builder: (_, _) => const EntranceScreen()),
       GoRoute(path: Routes.store, builder: (_, _) => const StoreScreen()),

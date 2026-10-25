@@ -12,6 +12,8 @@ import '../../core/state/attendant_state.dart';
 import '../../core/state/board.dart';
 import '../../core/state/order_service.dart';
 import '../../core/state/outbox.dart';
+import '../../core/state/waiter_flow_state.dart';
+import '../../core/util/money.dart';
 import '../shared/widgets.dart';
 import 'bill_panel.dart';
 
@@ -251,8 +253,23 @@ class OrderCardState extends ConsumerState<OrderCard> {
     final o = widget.order;
     final staff = ref.watch(appControllerProvider.select((s) => s.staff));
     final estimated = widget.pending && o.total == null;
-    final canServe =
-        !widget.pending && o.hasReady && (staff?.can('order.serve') ?? true);
+    final waiterOnly = ref.watch(waiterOnlyProvider);
+    // Waiter-only flow: nobody works a kitchen screen, so the waiter marks it served as soon as it is sent.
+    final canServe = waiterOnly
+        ? !widget.pending &&
+              const {
+                OrderStatus.sent,
+                OrderStatus.inPreparation,
+                OrderStatus.ready,
+              }.contains(o.status) &&
+              (staff?.can('order.serve') ?? true)
+        : !widget.pending && o.hasReady && (staff?.can('order.serve') ?? true);
+    final canPay =
+        waiterOnly &&
+        !widget.pending &&
+        o.status == OrderStatus.served &&
+        (staff?.can('waiterflow.settle') ?? false) &&
+        Money.toMinor(o.balanceDue) > BigInt.zero;
     final sent = o.status != OrderStatus.draft && !widget.pending;
     // A printed bill freezes the order (server: 409 order_billed).
     final frozen = o.bill.printed;
@@ -380,7 +397,8 @@ class OrderCardState extends ConsumerState<OrderCard> {
                   ],
                 ),
               ),
-            if (sent &&
+            if (!waiterOnly &&
+                sent &&
                 o.isOpen &&
                 !o.awaitingApproval &&
                 !o.pendingConfirmation)
@@ -402,6 +420,20 @@ class OrderCardState extends ConsumerState<OrderCard> {
                     ),
                   ),
                 const SizedBox(width: 8),
+                if (canPay)
+                  FilledButton.icon(
+                    key: Key('pay-${o.id}'),
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            ref.read(preselectOrdersProvider.notifier).set({
+                              o.id,
+                            });
+                            unawaited(context.push(Routes.tabs));
+                          },
+                    icon: const Icon(Icons.payments_outlined),
+                    label: Text('Pay ${money(o.balanceDue)}'),
+                  ),
                 if (canServe)
                   FilledButton.icon(
                     key: Key('serve-${o.id}'),

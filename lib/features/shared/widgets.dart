@@ -38,7 +38,8 @@ Color orderStatusColor(String status) => switch (status) {
   _ => R007Colors.grey,
 };
 
-String statusLabel(String s) => s.replaceAll('_', ' ');
+/// LOCKED = sent and no longer editable (nothing is routed to a kitchen screen), which staff know simply as "sent".
+String statusLabel(String s) => s == 'LOCKED' ? 'SENT' : s.replaceAll('_', ' ');
 
 /// Coloured status chip with text (never colour alone).
 class StatusPill extends StatelessWidget {

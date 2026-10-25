@@ -162,6 +162,7 @@ class FacilityRules {
   const FacilityRules({
     this.allowOpenTabs = true,
     this.allowOfflineOrders = true,
+    this.waiterOnly = false,
   });
   factory FacilityRules.fromJson(Json j) {
     final r = j.obj('operatingRules');
@@ -172,10 +173,14 @@ class FacilityRules {
       allowOfflineOrders: r['allowOfflineOrders'] is bool
           ? r['allowOfflineOrders'] as bool
           : true,
+      waiterOnly: r['serviceFlow']?.toString().toUpperCase() == 'WAITER_ONLY',
     );
   }
   final bool allowOpenTabs;
   final bool allowOfflineOrders;
+
+  /// Waiter-only service flow: no kitchen/bar screens and no cashier; waiters serve and take payment on the tablet.
+  final bool waiterOnly;
 }
 
 /// Result of device enrolment / lookup (contract `Device` + `deviceToken`).
@@ -476,6 +481,7 @@ class Order {
     this.createdAt,
     this.createdByStaffId,
     this.createdByName,
+    this.responsibleStaffId,
     this.number,
     this.rowVersion = 0,
     this.pendingApprovalId,
@@ -500,6 +506,7 @@ class Order {
     createdAt: j.date('createdAt'),
     createdByStaffId: j.strOrNull('createdByStaffId'),
     createdByName: j.strOrNull('createdByName'),
+    responsibleStaffId: j.strOrNull('responsibleStaffId'),
     number: j.strOrNull('number'),
     rowVersion: j.intOr('rowVersion'),
     pendingApprovalId: j.strOrNull('pendingApprovalId'),
@@ -528,6 +535,7 @@ class Order {
     createdAt: createdAt,
     createdByStaffId: createdByStaffId,
     createdByName: createdByName,
+    responsibleStaffId: responsibleStaffId,
     number: number,
     rowVersion: rowVersion,
     pendingApprovalId: pendingApprovalId,
@@ -552,6 +560,7 @@ class Order {
   final DateTime? createdAt;
   final String? createdByStaffId;
   final String? createdByName;
+  final String? responsibleStaffId;
   final String? number;
   final int rowVersion;
   final String? pendingApprovalId;
