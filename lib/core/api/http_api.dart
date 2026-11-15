@@ -580,12 +580,25 @@ class HttpR007Api implements R007Api {
         'limit': 60,
       },
     );
-    final open = _items(
-      r,
-    ).map(Order.fromJson).where((o) => o.isOpen).take(40).toList();
-    final detailed = await Future.wait(
-      open.map((o) => getOrder(o.id).catchError((Object _) => o)),
-    );
+    // One unreadable order must never blank the whole board: skip it.
+    final open = <Order>[];
+    for (final j in _items(r)) {
+      try {
+        final o = Order.fromJson(j);
+        if (o.isOpen) open.add(o);
+      } catch (_) {}
+      if (open.length == 40) break;
+    }
+    // Fetch the full order (per-line status) for the newest few only: with many open orders, 40 requests per
+    // refresh every 10 s keeps the spinner on and floods the server. The rest show their list data.
+    const detailCap = 15;
+    final detailed = await Future.wait([
+      for (var i = 0; i < open.length; i++)
+        if (i < detailCap)
+          getOrder(open[i].id).catchError((Object _) => open[i])
+        else
+          Future.value(open[i]),
+    ]);
     return detailed;
   }
 

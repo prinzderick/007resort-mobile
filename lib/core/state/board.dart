@@ -347,6 +347,16 @@ class BoardController extends Notifier<BoardState> {
       if (e.isUnauthorized) {
         unawaited(ref.read(appControllerProvider.notifier).logout());
       }
+    } catch (e) {
+      // Anything unexpected (a record the app cannot read, a bad answer): stop the spinner and keep the last
+      // known board instead of loading forever with blank tables.
+      if (_disposed) return;
+      state = state.copyWith(
+        loading: false,
+        loaded: state.loaded,
+        stale: true,
+        error: 'Could not read the latest orders. Pull to refresh.',
+      );
     }
   }
 
