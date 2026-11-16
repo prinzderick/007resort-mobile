@@ -176,6 +176,20 @@ class FacilityRules {
       waiterOnly: r['serviceFlow']?.toString().toUpperCase() == 'WAITER_ONLY',
     );
   }
+  factory FacilityRules.fromCache(Json j) => FacilityRules(
+    allowOpenTabs: j['allowOpenTabs'] is bool
+        ? j['allowOpenTabs'] as bool
+        : true,
+    allowOfflineOrders: j['allowOfflineOrders'] is bool
+        ? j['allowOfflineOrders'] as bool
+        : true,
+    waiterOnly: j['waiterOnly'] == true,
+  );
+  Map<String, dynamic> toCache() => {
+    'allowOpenTabs': allowOpenTabs,
+    'allowOfflineOrders': allowOfflineOrders,
+    'waiterOnly': waiterOnly,
+  };
   final bool allowOpenTabs;
   final bool allowOfflineOrders;
 

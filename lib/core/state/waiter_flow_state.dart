@@ -7,7 +7,10 @@ import 'board.dart';
 
 /// True when the signed-in facility runs the waiter-only service flow (no KDS, no cashier): the tablet serves and takes payment.
 final waiterOnlyProvider = Provider<bool>(
-  (ref) => ref.watch(rulesProvider).value?.waiterOnly ?? false,
+  (ref) =>
+      ref.watch(rulesProvider).value?.waiterOnly ??
+      ref.watch(cachedRulesProvider).value?.waiterOnly ??
+      false,
 );
 
 /// Unpaid tabs: the waiter's own, or everybody's for a supervisor/manager. Reloads whenever the board refreshes.
