@@ -111,6 +111,9 @@ class BoardController extends Notifier<BoardState> {
 
   @override
   BoardState build() {
+    // build() runs again (same instance) whenever the facility or the session changes; the previous run's dispose hook set
+    // this flag, and without resetting it the rebuilt board would never load anything again (endless spinner).
+    _disposed = false;
     final facilityId = ref.watch(
       appControllerProvider.select((s) => s.facilityId),
     );
