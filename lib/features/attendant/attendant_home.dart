@@ -8,6 +8,7 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/state/app_state.dart';
+import '../../core/state/approvals.dart';
 import '../../core/state/attendant_state.dart';
 import '../../core/state/board.dart';
 import '../../core/state/collection_service.dart';
@@ -28,6 +29,12 @@ class AttendantHome extends ConsumerWidget {
     final selection = ref.watch(selectionProvider);
     final canOrder = app.can('order.create');
     final waiterOnly = ref.watch(waiterOnlyProvider);
+    // A supervisor or manager signed in on a waiter tablet still has to see (and decide) void/discount requests.
+    final canApprove =
+        app.staff?.permissions.any((p) => p.endsWith('.approve')) ?? false;
+    final approvals = canApprove
+        ? ref.watch(approvalsProvider)
+        : const ApprovalsState();
     final incoming = waiterOnly
         ? (ref.watch(incomingHandoversProvider).value?.length ?? 0)
         : 0;
@@ -59,6 +66,17 @@ class AttendantHome extends ConsumerWidget {
                 : const Icon(Icons.refresh),
             onPressed: () => ref.read(boardProvider.notifier).refresh(),
           ),
+          if (canApprove)
+            IconButton(
+              key: const Key('approvals'),
+              tooltip: 'Approvals',
+              icon: Badge(
+                isLabelVisible: approvals.pending.isNotEmpty,
+                label: Text('${approvals.pending.length}'),
+                child: const Icon(Icons.gavel),
+              ),
+              onPressed: () => context.push(Routes.approvals),
+            ),
           if (waiterOnly) ...[
             IconButton(
               key: const Key('tabs'),

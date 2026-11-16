@@ -33,6 +33,7 @@ abstract final class Routes {
   static const cash = '/attendant/cash';
   static const tabs = '/attendant/tabs';
   static const handovers = '/attendant/handovers';
+  static const approvals = '/attendant/approvals';
   static const supervisorTabs = '/supervisor/tabs';
   static const supervisor = '/supervisor';
   static const entrance = '/sports/entrance';
@@ -96,6 +97,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'handovers',
             builder: (_, _) => const HandoversScreen(),
+          ),
+          GoRoute(
+            path: 'approvals',
+            builder: (_, _) => const ApprovalsScreen(),
           ),
         ],
       ),
