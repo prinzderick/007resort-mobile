@@ -1,5 +1,6 @@
 import '../models/collection_models.dart';
 import '../models/models.dart';
+import '../models/waiter_flow.dart';
 import '../util/json.dart';
 
 /// Thrown when the server is unreachable (no route, timeout, DNS, refused).
@@ -419,6 +420,63 @@ abstract class R007Api {
     required String id,
     required String declaredAmount,
     String? note,
+    required String idempotencyKey,
+  });
+
+  // ------------------------------------------------- waiter-only flow
+
+  /// `GET /waiter-flow/open-items`: unpaid tabs. A waiter gets their own; a supervisor/manager gets everybody's
+  /// (optionally narrowed to [staffId]).
+  Future<OpenItems> waiterOpenItems(String facilityId, {String? staffId});
+
+  /// `POST /waiter-flow/settle`: pay several served orders / tabs at once; confirmed on the spot, no cashier.
+  Future<WaiterPayResult> waiterSettle({
+    required String facilityId,
+    required List<String> orderIds,
+    required List<PayTender> tenders,
+    required String idempotencyKey,
+  });
+
+  Future<List<Colleague>> waiterColleagues(String facilityId);
+  Future<List<TabHandover>> listTabHandovers(
+    String facilityId, {
+    String direction = 'all',
+    String status = 'PENDING',
+  });
+  Future<TabHandover> requestTabHandover({
+    required String facilityId,
+    required String toStaffId,
+    List<String>? orderIds,
+    String? note,
+    required String idempotencyKey,
+  });
+  Future<TabHandover> acceptTabHandover(
+    String id, {
+    required String idempotencyKey,
+  });
+  Future<TabHandover> rejectTabHandover(
+    String id, {
+    String? reason,
+    required String idempotencyKey,
+  });
+  Future<TabHandover> cancelTabHandover(
+    String id, {
+    required String idempotencyKey,
+  });
+
+  /// Supervisor: move [orderIds] to another waiter now (recorded with a reason).
+  Future<void> reassignTabs({
+    required String facilityId,
+    required String toStaffId,
+    required List<String> orderIds,
+    required String reason,
+    required String idempotencyKey,
+  });
+
+  /// `POST /receipts/{id}/print-jobs`: ask a POS terminal / the admin portal to print the receipt.
+  Future<void> requestReceiptPrint(
+    String receiptId, {
+    int copies = 1,
     required String idempotencyKey,
   });
 

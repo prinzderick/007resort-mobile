@@ -8,10 +8,12 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/state/app_state.dart';
+import '../../core/state/approvals.dart';
 import '../../core/state/attendant_state.dart';
 import '../../core/state/board.dart';
 import '../../core/state/collection_service.dart';
 import '../../core/state/outbox.dart';
+import '../../core/state/waiter_flow_state.dart';
 import '../shared/widgets.dart';
 import 'order_pane.dart';
 
@@ -26,6 +28,16 @@ class AttendantHome extends ConsumerWidget {
     final board = ref.watch(boardProvider);
     final selection = ref.watch(selectionProvider);
     final canOrder = app.can('order.create');
+    final waiterOnly = ref.watch(waiterOnlyProvider);
+    // A supervisor or manager signed in on a waiter tablet still has to see (and decide) void/discount requests.
+    final canApprove =
+        app.staff?.permissions.any((p) => p.endsWith('.approve')) ?? false;
+    final approvals = canApprove
+        ? ref.watch(approvalsProvider)
+        : const ApprovalsState();
+    final incoming = waiterOnly
+        ? (ref.watch(incomingHandoversProvider).value?.length ?? 0)
+        : 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -54,9 +66,44 @@ class AttendantHome extends ConsumerWidget {
                 : const Icon(Icons.refresh),
             onPressed: () => ref.read(boardProvider.notifier).refresh(),
           ),
-          if (app.can('payment.collect') &&
-              (ref.watch(collectionPolicyProvider).value?.cashHoldingAllowed ??
-                  true))
+          if (canApprove)
+            IconButton(
+              key: const Key('approvals'),
+              tooltip: 'Approvals',
+              icon: Badge(
+                isLabelVisible: approvals.pending.isNotEmpty,
+                label: Text('${approvals.pending.length}'),
+                child: const Icon(Icons.gavel),
+              ),
+              onPressed: () => context.push(Routes.approvals),
+            ),
+          if (waiterOnly) ...[
+            IconButton(
+              key: const Key('tabs'),
+              tooltip: app.can('waiterflow.manage')
+                  ? 'Open tabs and payment'
+                  : 'My tabs and payment',
+              icon: const Icon(Icons.payments_outlined),
+              onPressed: () => context.push(Routes.tabs),
+            ),
+            IconButton(
+              key: const Key('handovers'),
+              tooltip: 'Hand over tabs',
+              icon: Badge(
+                isLabelVisible: incoming > 0,
+                label: Text('$incoming'),
+                child: const Icon(Icons.swap_horiz),
+              ),
+              onPressed: () => context.push(Routes.handovers),
+            ),
+          ],
+          if (waiterOnly ||
+              (app.can('payment.collect') &&
+                  (ref
+                          .watch(collectionPolicyProvider)
+                          .value
+                          ?.cashHoldingAllowed ??
+                      true)))
             IconButton(
               key: const Key('my-cash'),
               tooltip: 'My cash',

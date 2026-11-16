@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/r007_api.dart';
 import '../models/models.dart';
+import '../storage/kv_store.dart';
 import '../util/json.dart';
 import '../util/money.dart';
 import 'app_state.dart';
@@ -63,18 +65,60 @@ final catalogProvider = FutureProvider.autoDispose<Catalog>((ref) async {
   }
 });
 
-/// Facility rules (open tabs etc.), best effort.
-final rulesProvider = FutureProvider.autoDispose<FacilityRules>((ref) async {
+/// The last facility rules this tablet saw for the current facility (survives restarts and bad connections).
+final cachedRulesProvider = FutureProvider<FacilityRules?>((ref) async {
+  final facilityId = ref.watch(
+    appControllerProvider.select((s) => s.facilityId),
+  );
+  if (facilityId == null) return null;
+  final raw = await ref.read(kvStoreProvider).read('r007.rules.$facilityId');
+  if (raw == null) return null;
+  try {
+    return FacilityRules.fromCache(jsonDecode(raw) as Json);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Facility rules (open tabs, waiter-only flow ...). The service flow decides what the whole screen offers, so it must
+/// never flip back to the standard flow just because one request was slow or failed: on ANY failure the last known rules
+/// are kept (in memory and on the tablet), and the rules are re-read quietly every two minutes.
+final rulesProvider = FutureProvider<FacilityRules>((ref) async {
   final facilityId = ref.watch(
     appControllerProvider.select((s) => s.facilityId),
   );
   if (facilityId == null) return const FacilityRules();
+  final timer = Timer(const Duration(minutes: 2), ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+  final api = ref.read(apiProvider);
+  return loadRulesResilient(
+    () => api.getRules(facilityId),
+    ref.read(kvStoreProvider),
+    'r007.rules.$facilityId',
+  );
+});
+
+/// Fetch the rules; remember them on success; on ANY failure (offline, server error, timeout, unreadable answer) return the
+/// last remembered rules instead of the standard-flow default, so a flaky request can never switch the screen's flow.
+Future<FacilityRules> loadRulesResilient(
+  Future<FacilityRules> Function() fetch,
+  KvStore kv,
+  String key,
+) async {
   try {
-    return await ref.read(apiProvider).getRules(facilityId);
-  } on ApiOfflineException {
+    final rules = await fetch().timeout(const Duration(seconds: 15));
+    await kv.write(key, jsonEncode(rules.toCache()));
+    return rules;
+  } catch (_) {
+    final raw = await kv.read(key);
+    if (raw != null) {
+      try {
+        return FacilityRules.fromCache(jsonDecode(raw) as Json);
+      } catch (_) {}
+    }
     return const FacilityRules();
   }
-});
+}
 
 /// Orders queued offline but not yet confirmed, as display-only drafts.
 final pendingOrdersProvider = Provider<List<Order>>((ref) {

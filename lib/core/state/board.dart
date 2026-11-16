@@ -111,6 +111,9 @@ class BoardController extends Notifier<BoardState> {
 
   @override
   BoardState build() {
+    // build() runs again (same instance) whenever the facility or the session changes; the previous run's dispose hook set
+    // this flag, and without resetting it the rebuilt board would never load anything again (endless spinner).
+    _disposed = false;
     final facilityId = ref.watch(
       appControllerProvider.select((s) => s.facilityId),
     );
@@ -347,6 +350,16 @@ class BoardController extends Notifier<BoardState> {
       if (e.isUnauthorized) {
         unawaited(ref.read(appControllerProvider.notifier).logout());
       }
+    } catch (e) {
+      // Anything unexpected (a record the app cannot read, a bad answer): stop the spinner and keep the last
+      // known board instead of loading forever with blank tables.
+      if (_disposed) return;
+      state = state.copyWith(
+        loading: false,
+        loaded: state.loaded,
+        stale: true,
+        error: 'Could not read the latest orders. Pull to refresh.',
+      );
     }
   }
 

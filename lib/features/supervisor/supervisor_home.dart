@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/state/app_state.dart';
 import '../../core/state/approvals.dart';
 import '../../core/state/board.dart';
+import '../../core/state/waiter_flow_state.dart';
 import '../attendant/order_pane.dart';
 import '../shared/widgets.dart';
 
@@ -48,6 +52,13 @@ class SupervisorHome extends ConsumerWidget {
                 ref.read(approvalsProvider.notifier).refresh();
               },
             ),
+            if (ref.watch(waiterOnlyProvider) && app.can('waiterflow.manage'))
+              IconButton(
+                key: const Key('open-tabs'),
+                tooltip: 'Open tabs and payment',
+                icon: const Icon(Icons.payments_outlined),
+                onPressed: () => context.push(Routes.supervisorTabs),
+              ),
             IconButton(
               tooltip: 'Lock tablet',
               icon: const Icon(Icons.lock_outline),
@@ -92,6 +103,33 @@ class SupervisorHome extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The approvals queue on its own screen, for staff who can approve but are signed in on a waiter (Attendant) tablet.
+class ApprovalsScreen extends ConsumerWidget {
+  const ApprovalsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final app = ref.watch(appControllerProvider);
+    final approvals = ref.watch(approvalsProvider);
+    final canApprove =
+        app.staff?.permissions.any((p) => p.endsWith('.approve')) ?? false;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Approvals'),
+        actions: [
+          IconButton(
+            key: const Key('refresh-approvals'),
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(approvalsProvider.notifier).refresh(),
+          ),
+        ],
+      ),
+      body: _ApprovalsQueue(state: approvals, canApprove: canApprove),
     );
   }
 }
@@ -204,7 +242,9 @@ class _ApprovalsQueue extends ConsumerWidget {
     if (state.pending.isEmpty) {
       return EmptyState(
         state.loading ? Icons.hourglass_empty : Icons.verified_outlined,
-        state.loading ? 'Loading...' : 'No approvals waiting',
+        state.loading
+            ? 'Loading...'
+            : 'No approvals waiting for you.\nA request you made yourself must be decided by someone else.',
       );
     }
     return ListView.separated(

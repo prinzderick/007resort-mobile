@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../config/app_config.dart';
 import '../models/collection_models.dart';
 import '../models/models.dart';
+import '../models/waiter_flow.dart';
 import '../realtime/pusher_client.dart';
 import '../util/json.dart';
 import 'r007_api.dart';
@@ -579,12 +580,25 @@ class HttpR007Api implements R007Api {
         'limit': 60,
       },
     );
-    final open = _items(
-      r,
-    ).map(Order.fromJson).where((o) => o.isOpen).take(40).toList();
-    final detailed = await Future.wait(
-      open.map((o) => getOrder(o.id).catchError((Object _) => o)),
-    );
+    // One unreadable order must never blank the whole board: skip it.
+    final open = <Order>[];
+    for (final j in _items(r)) {
+      try {
+        final o = Order.fromJson(j);
+        if (o.isOpen) open.add(o);
+      } catch (_) {}
+      if (open.length == 40) break;
+    }
+    // Fetch the full order (per-line status) for the newest few only: with many open orders, 40 requests per
+    // refresh every 10 s keeps the spinner on and floods the server. The rest show their list data.
+    const detailCap = 15;
+    final detailed = await Future.wait([
+      for (var i = 0; i < open.length; i++)
+        if (i < detailCap)
+          getOrder(open[i].id).catchError((Object _) => open[i])
+        else
+          Future.value(open[i]),
+    ]);
     return detailed;
   }
 
@@ -907,6 +921,164 @@ class HttpR007Api implements R007Api {
       idempotencyKey: idempotencyKey,
     );
     return CashHandover.fromJson(_obj(r.data));
+  }
+
+  // --------------------------------------------------- waiter-only flow
+
+  @override
+  Future<OpenItems> waiterOpenItems(
+    String facilityId, {
+    String? staffId,
+  }) async => OpenItems.fromJson(
+    _obj(
+      await _send(
+        'GET',
+        '/waiter-flow/open-items',
+        query: {'facilityId': facilityId, 'staffId': ?staffId},
+      ),
+    ),
+  );
+
+  @override
+  Future<WaiterPayResult> waiterSettle({
+    required String facilityId,
+    required List<String> orderIds,
+    required List<PayTender> tenders,
+    required String idempotencyKey,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/waiter-flow/settle',
+      body: {
+        'facilityId': facilityId,
+        'orderIds': orderIds,
+        'tenders': [for (final t in tenders) t.toApi()],
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return WaiterPayResult.fromJson(_obj(r.data));
+  }
+
+  @override
+  Future<List<Colleague>> waiterColleagues(String facilityId) async => _items(
+    await _send(
+      'GET',
+      '/waiter-flow/waiters',
+      query: {'facilityId': facilityId},
+    ),
+  ).map(Colleague.fromJson).toList();
+
+  @override
+  Future<List<TabHandover>> listTabHandovers(
+    String facilityId, {
+    String direction = 'all',
+    String status = 'PENDING',
+  }) async => _items(
+    await _send(
+      'GET',
+      '/waiter-flow/handovers',
+      query: {
+        'facilityId': facilityId,
+        'direction': direction,
+        'status': status,
+      },
+    ),
+  ).map(TabHandover.fromJson).toList();
+
+  @override
+  Future<TabHandover> requestTabHandover({
+    required String facilityId,
+    required String toStaffId,
+    List<String>? orderIds,
+    String? note,
+    required String idempotencyKey,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/waiter-flow/handovers',
+      body: {
+        'facilityId': facilityId,
+        'toStaffId': toStaffId,
+        if (orderIds != null && orderIds.isNotEmpty) 'orderIds': orderIds,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return TabHandover.fromJson(_obj(r.data));
+  }
+
+  Future<TabHandover> _handoverAction(
+    String id,
+    String action,
+    String idempotencyKey, {
+    Object? body,
+  }) async {
+    final r = await _raw(
+      'POST',
+      '/waiter-flow/handovers/$id/$action',
+      body: body ?? const <String, dynamic>{},
+      idempotencyKey: idempotencyKey,
+    );
+    return TabHandover.fromJson(_obj(r.data));
+  }
+
+  @override
+  Future<TabHandover> acceptTabHandover(
+    String id, {
+    required String idempotencyKey,
+  }) => _handoverAction(id, 'accept', idempotencyKey);
+
+  @override
+  Future<TabHandover> rejectTabHandover(
+    String id, {
+    String? reason,
+    required String idempotencyKey,
+  }) => _handoverAction(
+    id,
+    'reject',
+    idempotencyKey,
+    body: {if (reason != null && reason.isNotEmpty) 'reason': reason},
+  );
+
+  @override
+  Future<TabHandover> cancelTabHandover(
+    String id, {
+    required String idempotencyKey,
+  }) => _handoverAction(id, 'cancel', idempotencyKey);
+
+  @override
+  Future<void> reassignTabs({
+    required String facilityId,
+    required String toStaffId,
+    required List<String> orderIds,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    await _raw(
+      'POST',
+      '/waiter-flow/reassign',
+      body: {
+        'facilityId': facilityId,
+        'toStaffId': toStaffId,
+        'orderIds': orderIds,
+        'reason': reason,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  @override
+  Future<void> requestReceiptPrint(
+    String receiptId, {
+    int copies = 1,
+    required String idempotencyKey,
+  }) async {
+    await _raw(
+      'POST',
+      '/receipts/$receiptId/print-jobs',
+      body: {'copies': copies},
+      idempotencyKey: idempotencyKey,
+    );
   }
 
   // -------------------------------------------------------------- realtime

@@ -32,6 +32,8 @@ class ApprovalsController extends Notifier<ApprovalsState> {
 
   @override
   ApprovalsState build() {
+    _disposed =
+        false; // a rebuilt controller must work again (see BoardController)
     ref.onDispose(() => _disposed = true);
     ref.listen(
       boardProvider.select((s) => s.revision),
